@@ -27,9 +27,8 @@ const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
-    FRONTEND_URL,  // ✅ This will use your Vercel URL
-    'https://cravely-backend-dmak.onrender.com',
-    'https://cravely-food-delivery-website.vercel.app'  // ✅ Hardcode bhi kar do
+    'https://cravely-food-delivery-website-ldqsuw9rg.vercel.app',  // ✅ ADD THIS
+    'https://cravely-backend-dmak.onrender.com'
 ]
 
 console.log('✅ CORS allowed origins:', allowedOrigins)
