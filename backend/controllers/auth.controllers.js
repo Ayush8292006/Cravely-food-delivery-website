@@ -234,7 +234,6 @@ export const resendVerificationEmail = async (req, res) => {
     }
 }
 
-// ✅ EXISTING FUNCTIONS (same as before)
 export const signIn = async (req, res) => {
     try {
         const { email, password } = req.body
@@ -244,10 +243,9 @@ export const signIn = async (req, res) => {
             return res.status(400).json({ message: "User does not exist" })
         }
 
-        // ✅ CHECK: Email verified hai?
         if (!user.isEmailVerified) {
             return res.status(403).json({ 
-                message: "Please verify your email first. Check your inbox for verification link.",
+                message: "Please verify your email first",
                 code: "EMAIL_NOT_VERIFIED"
             })
         }
@@ -258,16 +256,30 @@ export const signIn = async (req, res) => {
         }
 
         const token = await genToken(user._id)
+        
+        // ✅ FIXED: Use sameSite: "none" for cross-origin
         res.cookie("token", token, {
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: "lax",
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            httpOnly: true
+            secure: true,  // ✅ Must be true for HTTPS
+            sameSite: "none",  // ✅ Required for cross-origin (Vercel → Render)
+            maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
+            httpOnly: true,
+            path: '/'
         })
 
-        return res.status(200).json(user)
+        console.log("✅ Token set for:", user.email)
+
+        return res.status(200).json({
+            _id: user._id,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            mobile: user.mobile,
+            isApproved: user.isApproved
+        })
+        
     } catch (error) {
-        return res.status(500).json({ message: `sign In error ${error.message}` })
+        console.log("❌ Sign in error:", error.message)
+        return res.status(500).json({ message: `sign In error: ${error.message}` })
     }
 }
 
