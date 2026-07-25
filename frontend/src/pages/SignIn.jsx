@@ -85,32 +85,41 @@ function SignIn() {
         }
     }
 
-    const handleGoogleAuth = async () => {
-        const provider = new GoogleAuthProvider()
-        const result = await signInWithPopup(auth, provider)
+   const handleGoogleAuth = async () => {
+    const provider = new GoogleAuthProvider()
+    const result = await signInWithPopup(auth, provider)
 
-        try {
-            const { data } = await axios.post(`${serverUrl}/api/auth/google-auth`, {
-                email: result.user.email
-            }, { withCredentials: true })
-            dispatch(setUserData(data))
+    try {
+        const { data } = await axios.post(
+            `${serverUrl}/api/auth/google-auth`,
+            {
+                fullName: result.user.displayName,
+                email: result.user.email, 
+                role: role,
+                mobile: result.user.phoneNumber || "0000000000"
+            }, 
+            { 
+                withCredentials: true,  // ✅ MUST BE TRUE
+                headers: { 'Content-Type': 'application/json' }
+            }
+        )
+        
+        dispatch(setUserData(data))
+        
+        // ✅ Check cookie after login
+        console.log("✅ Google Auth successful")
+        console.log("📝 Cookies:", document.cookie)
 
-            toast.success("Signed in successfully with Google!", {
-                position: "top-center",
-                autoClose: 2000,
-            });
-
-            setTimeout(() => {
-                navigate("/");
-            }, 2000);
-        } catch (error) {
-            console.log(error)
-            toast.error("Google sign in failed!", {
-                position: "top-center",
-                autoClose: 2000,
-            });
-        }
+        toast.success("Signed up successfully with Google!")
+        setTimeout(() => {
+            navigate("/");
+        }, 2000);
+        
+    } catch (error) {
+        console.log("❌ Google auth error:", error)
+        toast.error("Google sign up failed!")
     }
+}
 
     return (
         <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">

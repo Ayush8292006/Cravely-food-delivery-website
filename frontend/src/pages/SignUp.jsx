@@ -16,6 +16,7 @@ import { FaMobileButton } from "react-icons/fa6";
 import { RiLockPasswordFill } from "react-icons/ri";
 import { toast } from "react-toastify";
 
+
 function SignUp() {
     const [showPassword, setshowPassword] = useState(false)
     const [role, setRole] = useState("user")
@@ -83,38 +84,39 @@ function SignUp() {
         }
     }
 
-    const handleGoogleAuth = async () => {
-    // ✅ Remove mobile validation for Google signup
-    // if (!mobile) {
-    //     return setErr("Mobile no. is required")
-    // }
-    
+const handleGoogleAuth = async () => {
     const provider = new GoogleAuthProvider()
     const result = await signInWithPopup(auth, provider)
 
     try {
-        const { data } = await axios.post(`${serverUrl}/api/auth/google-auth`, {
-            fullName: result.user.displayName,
-            email: result.user.email, 
-            role,
-            mobile: result.user.phoneNumber || "0000000000"  // ✅ Default value
-        }, { withCredentials: true })
+        const { data } = await axios.post(
+            `${serverUrl}/api/auth/google-auth`,
+            {
+                fullName: result.user.displayName,
+                email: result.user.email, 
+                role: role,
+                mobile: result.user.phoneNumber || "0000000000"
+            }, 
+            { 
+                withCredentials: true,  // ✅ MUST BE TRUE
+                headers: { 'Content-Type': 'application/json' }
+            }
+        )
+        
         dispatch(setUserData(data))
+        
+        // ✅ Check cookie after login
+        console.log("✅ Google Auth successful")
+        console.log("📝 Cookies:", document.cookie)
 
-        toast.success("Signed up successfully with Google!", {
-            position: "top-center",
-            autoClose: 2000,
-        });
-
+        toast.success("Signed up successfully with Google!")
         setTimeout(() => {
             navigate("/");
         }, 2000);
+        
     } catch (error) {
-        console.log(error)
-        toast.error("Google sign up failed!", {
-            position: "top-center",
-            autoClose: 2000,
-        });
+        console.log("❌ Google auth error:", error)
+        toast.error("Google sign up failed!")
     }
 }
 

@@ -361,22 +361,37 @@ export const googleAuth = async (req, res) => {
             user = await User.create({
                 fullName, 
                 email, 
-                mobile: mobile || "0000000000",  // ✅ Default if missing
+                mobile: mobile || "0000000000",
                 role: role || "user",
-                isEmailVerified: true  // ✅ Google users auto-verified
+                isEmailVerified: true
             })
         }
 
         const token = await genToken(user._id)
+        
+        // ✅ FIXED COOKIE SETTINGS (SAME AS SIGNIN)
         res.cookie("token", token, {
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: "lax",
+            secure: true,              // ✅ HTTPS ke liye
+            sameSite: "none",          // ✅ Cross-origin ke liye
             maxAge: 7 * 24 * 60 * 60 * 1000,
-            httpOnly: true
+            httpOnly: true,
+            path: '/',
+            domain: '.onrender.com'
         })
 
-        return res.status(200).json(user)
+        console.log("✅ Google Auth Token set for:", user.email)
+
+        return res.status(200).json({
+            _id: user._id,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            mobile: user.mobile,
+            isApproved: user.isApproved
+        })
+        
     } catch (error) {
+        console.log("❌ Google Auth error:", error.message)
         return res.status(500).json({ message: `Google Authentication error ${error.message}` })
     }
 }
