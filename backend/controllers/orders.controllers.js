@@ -199,8 +199,6 @@ export const verifyRazorpay = async (req, res) => {
     try {
         const { razorpay_payment_id, razorpay_order_id, razorpay_signature, orderId } = req.body
 
-        console.log("🔍 Verifying Razorpay payment:", { razorpay_payment_id, razorpay_order_id, orderId })
-
         const isValid = await verifyRazorpayPayment(
             razorpay_payment_id,
             razorpay_order_id,
@@ -220,12 +218,11 @@ export const verifyRazorpay = async (req, res) => {
         order.razorpayPaymentId = razorpay_payment_id
         await order.save()
 
-        console.log("✅ Order payment updated:", order._id)
-
-        await order.populate("shopOrders.shopOrderItems.item", "name image price")
+        // ✅ Populate user data
+        await order.populate("user", "fullName email mobile")  // ✅ ADD THIS
         await order.populate("shopOrders.shop", "name")
         await order.populate("shopOrders.owner", "name socketId")
-        await order.populate("user", "name email mobile")
+        await order.populate("shopOrders.shopOrderItems.item", "name image price")
 
         try {
             await sendOrderConfirmation(order.user, order)
@@ -277,6 +274,7 @@ export const getMyOrders = async (req, res) => {
         if (user.role === "user") {
             orders = await Order.find({ user: req.userId })
                 .sort({ createdAt: -1 })
+                .populate("user", "fullName email mobile")  // ✅ ADD THIS
                 .populate("shopOrders.shop", "name")
                 .populate("shopOrders.owner", "name email mobile")
                 .populate("shopOrders.shopOrderItems.item", "name image price")
@@ -284,8 +282,8 @@ export const getMyOrders = async (req, res) => {
         else if (user.role === "owner") {
             const allOrders = await Order.find({ "shopOrders.owner": req.userId })
                 .sort({ createdAt: -1 })
+                .populate("user", "fullName email mobile")  // ✅ ADD THIS
                 .populate("shopOrders.shop", "name")
-                .populate("user")
                 .populate("shopOrders.shopOrderItems.item", "name image price")
                 .populate("shopOrders.assignedDeliveryBoy", "fullName mobile")
 
@@ -297,7 +295,6 @@ export const getMyOrders = async (req, res) => {
             })).filter(order => order.shopOrders.length > 0)
         }
 
-        // ✅ FIX: Always return 200 with orders array (even if empty)
         return res.status(200).json(orders)
 
     } catch (error) {
@@ -314,29 +311,40 @@ export const getMyOrders = async (req, res) => {
 export const getOrderById = async (req, res) => {
     try {
         const { orderId } = req.params
+
+        // ✅ FIX: Fully populate user data
         const order = await Order.findById(orderId)
-            .populate("user")
+            .populate("user", "fullName email mobile")  // ✅ SPECIFY FIELDS
             .populate({
                 path: "shopOrders.shop",
                 model: "Shop"
             })
             .populate({
                 path: "shopOrders.assignedDeliveryBoy",
-                model: "User"
+                model: "User",
+                select: "fullName mobile email"  // ✅ SELECT SPECIFIC FIELDS
             })
             .populate({
                 path: "shopOrders.shopOrderItems.item",
                 model: "Item"
             })
-            .lean()
+            .lean()  // ✅ Convert to plain object
 
         if (!order) {
-            return res.status(400).json({ message: "Order not found" })
+            return res.status(404).json({ message: "Order not found" })
+        }
+
+        // ✅ Ensure user data exists
+        if (!order.user) {
+            console.log("⚠️ No user found for order:", orderId)
         }
 
         return res.status(200).json(order)
     } catch (error) {
-        return res.status(500).json({ message: `get order by id error ${error}` })
+        console.log("❌ Get order by id error:", error.message)
+        return res.status(500).json({ 
+            message: `get order by id error: ${error.message}` 
+        })
     }
 }
 
@@ -939,4 +947,4 @@ export const getMyOrdersWithFilters = async (req, res) => {
     }
 }
 
- 
+    
