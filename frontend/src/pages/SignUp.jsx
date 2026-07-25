@@ -15,6 +15,7 @@ import { setUserData } from '../redux/userSlice';
 import { FaMobileButton } from "react-icons/fa6";
 import { RiLockPasswordFill } from "react-icons/ri";
 import { toast } from "react-toastify";
+import { setSessionUser } from '../utils/auth'
 
 
 function SignUp() {
@@ -56,12 +57,17 @@ function SignUp() {
 
     const strength = getPasswordStrength(password)
 
-    const handleSignUp = async () => {
+     const handleSignUp = async () => {
         setLoading(true)
         try {
             const result = await axios.post(`${serverUrl}/api/auth/signup`, {
                 fullName, email, password, mobile, role
             }, { withCredentials: true })
+            
+            // ✅ Save user in session
+            setSessionUser(result.data)  // ✅ ADD THIS
+            localStorage.setItem('userData', JSON.stringify(result.data))
+            dispatch(setUserData(result.data))
             
             setErr("")
             setLoading(false)
@@ -84,59 +90,40 @@ function SignUp() {
         }
     }
 
-const handleGoogleAuth = async () => {
-    // ✅ Show loading state
-    setLoading(true)
-    
-    try {
+   const handleGoogleAuth = async () => {
         const provider = new GoogleAuthProvider()
-        
-        // ✅ Add these scopes
-        provider.addScope('profile')
-        provider.addScope('email')
-        
         const result = await signInWithPopup(auth, provider)
-        
-        console.log("✅ Google User:", result.user)
-        console.log("✅ Google User Email:", result.user.email)
-        
-        const { data } = await axios.post(
-            `${serverUrl}/api/auth/google-auth`,
-            {
-                fullName: result.user.displayName || result.user.email.split('@')[0],
-                email: result.user.email,
-                role: role,
+
+        try {
+            const { data } = await axios.post(`${serverUrl}/api/auth/google-auth`, {
+                fullName: result.user.displayName,
+                email: result.user.email, 
+                role,
                 mobile: result.user.phoneNumber || "0000000000"
-            },
-            { 
-                withCredentials: true,
-                headers: { 'Content-Type': 'application/json' }
-            }
-        )
-        
-        dispatch(setUserData(data))
-        
-        toast.success("Signed up successfully with Google! 🎉")
-        
-        setTimeout(() => {
-            navigate("/")
-        }, 2000)
-        
-    } catch (error) {
-        console.log("❌ Google Auth Error:", error)
-        
-        // ✅ Handle specific errors
-        if (error.code === 'auth/popup-closed-by-user') {
-            toast.error("Popup was closed. Please try again.")
-        } else if (error.code === 'auth/unauthorized-domain') {
-            toast.error("Domain not authorized. Please contact support.")
-        } else {
-            toast.error(error.message || "Google sign up failed!")
+            }, { withCredentials: true })
+            
+            // ✅ Save user in session
+            setSessionUser(data)  // ✅ ADD THIS
+            localStorage.setItem('userData', JSON.stringify(data))
+            
+            dispatch(setUserData(data))
+
+            toast.success("Signed up successfully with Google!", {
+                position: "top-center",
+                autoClose: 2000,
+            });
+
+            setTimeout(() => {
+                navigate("/");
+            }, 2000);
+        } catch (error) {
+            console.log(error)
+            toast.error("Google sign up failed!", {
+                position: "top-center",
+                autoClose: 2000,
+            });
         }
-    } finally {
-        setLoading(false)
     }
-}
 
     return (
         <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">

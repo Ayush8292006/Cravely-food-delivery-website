@@ -21,17 +21,23 @@ function OwnerNav() {
     const [showDropdown, setShowDropdown] = useState(false)
     const [notifications] = useState(3)
 
-    const handleLogout = async () => {
-        try {
-            await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
-            dispatch(setUserData(null))
-            localStorage.removeItem('userData')
-            toast.success('Logged out successfully! 👋')
-            navigate('/signin')
-        } catch (error) {
-            toast.error('Logout failed!')
-        }
+import { clearSessionUser } from '../utils/auth'  // ✅ ADD THIS
+
+const handleLogout = async () => {
+    try {
+        await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
+        
+        // ✅ Clear session only
+        clearSessionUser()  // ✅ ADD THIS
+        localStorage.removeItem('userData')
+        
+        dispatch(setUserData(null))
+        toast.success('Logged out successfully! 👋')
+        navigate('/signin')
+    } catch (error) {
+        toast.error('Logout failed!')
     }
+}
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/95 backdrop-blur-2xl border-b border-white/5 shadow-2xl shadow-black/50">

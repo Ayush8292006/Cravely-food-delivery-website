@@ -14,6 +14,7 @@ import { setUserData } from '../redux/userSlice';
 import { MdMail } from "react-icons/md";
 import { RiLockPasswordFill } from "react-icons/ri";
 import { toast } from "react-toastify";
+import { setSessionUser } from '../utils/auth'
 
 function SignIn() {
     const [showPassword, setshowPassword] = useState(false)
@@ -29,12 +30,18 @@ function SignIn() {
         setIsVisible(true)
     }, [])
 
-    const handleSignIn = async () => {
+        const handleSignIn = async () => {
         setLoading(true)
         try {
             const result = await axios.post(`${serverUrl}/api/auth/signin`, {
                 email, password
             }, { withCredentials: true })
+            
+            // ✅ Save user in session (tab-specific)
+            setSessionUser(result.data)  // ✅ ADD THIS
+            
+            // ✅ Also save in localStorage
+            localStorage.setItem('userData', JSON.stringify(result.data))
             
             dispatch(setUserData(result.data))
             setErr("")
@@ -85,51 +92,37 @@ function SignIn() {
         }
     }
 
-const handleGoogleAuth = async () => {
-    setLoading(true)
-    
-    try {
+  const handleGoogleAuth = async () => {
         const provider = new GoogleAuthProvider()
-        provider.addScope('profile')
-        provider.addScope('email')
-        
         const result = await signInWithPopup(auth, provider)
-        
-        console.log("✅ Google User:", result.user)
-        
-        const { data } = await axios.post(
-            `${serverUrl}/api/auth/google-auth`,
-            {
+
+        try {
+            const { data } = await axios.post(`${serverUrl}/api/auth/google-auth`, {
                 email: result.user.email
-            },
-            { 
-                withCredentials: true,
-                headers: { 'Content-Type': 'application/json' }
-            }
-        )
-        
-        dispatch(setUserData(data))
-        
-        toast.success("Signed in successfully with Google! 🎉")
-        
-        setTimeout(() => {
-            navigate("/")
-        }, 2000)
-        
-    } catch (error) {
-        console.log("❌ Google Signin Error:", error)
-        
-        if (error.code === 'auth/popup-closed-by-user') {
-            toast.error("Popup was closed. Please try again.")
-        } else if (error.code === 'auth/unauthorized-domain') {
-            toast.error("Domain not authorized. Please contact support.")
-        } else {
-            toast.error(error.message || "Google sign in failed!")
+            }, { withCredentials: true })
+            
+            // ✅ Save user in session
+            setSessionUser(data)  // ✅ ADD THIS
+            localStorage.setItem('userData', JSON.stringify(data))
+            
+            dispatch(setUserData(data))
+
+            toast.success("Signed in successfully with Google!", {
+                position: "top-center",
+                autoClose: 2000,
+            });
+
+            setTimeout(() => {
+                navigate("/");
+            }, 2000);
+        } catch (error) {
+            console.log(error)
+            toast.error("Google sign in failed!", {
+                position: "top-center",
+                autoClose: 2000,
+            });
         }
-    } finally {
-        setLoading(false)
     }
-}
 
     return (
         <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">

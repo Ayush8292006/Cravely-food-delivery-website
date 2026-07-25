@@ -14,6 +14,7 @@ import { serverUrl } from '../../App'
 import { setUserData } from '../../redux/userSlice'
 import { toast } from 'react-toastify'
 import { motion, AnimatePresence } from 'framer-motion'
+import { clearSessionUser } from '../../utils/auth'
 
 function AdminLayout({ children }) {
     const navigate = useNavigate()
@@ -41,15 +42,20 @@ function AdminLayout({ children }) {
     ]
 
     const handleLogout = async () => {
-        try {
-            await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
-            dispatch(setUserData(null))
-            toast.success('Logged out successfully! 👋')
-            navigate('/admin/login')
-        } catch (error) {
-            toast.error('Logout failed!')
-        }
+    try {
+        await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
+        
+        // ✅ Clear session only
+        clearSessionUser()  // ✅ ADD THIS
+        localStorage.removeItem('userData')
+        
+        dispatch(setUserData(null))
+        toast.success('Logged out successfully! 👋')
+        navigate('/admin/login')
+    } catch (error) {
+        toast.error('Logout failed!')
     }
+}
 
     // ✅ 3D Animation Variants
     const sidebarVariants = {

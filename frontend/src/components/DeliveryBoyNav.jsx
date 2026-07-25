@@ -13,6 +13,7 @@ import {
 import { MdDeliveryDining, MdVerified } from 'react-icons/md'
 import { toast } from 'react-toastify'
 import { motion, AnimatePresence } from 'framer-motion'
+import { clearSessionUser } from '../utils/auth'
 
 function DeliveryBoyNav() {
     const navigate = useNavigate()
@@ -51,18 +52,21 @@ function DeliveryBoyNav() {
         fetchEarning()
     }, [userData])
 
-    const handleLogout = async () => {
-        try {
-            await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
-            dispatch(setUserData(null))
-            localStorage.removeItem('userData')
-            toast.success('Logged out successfully! 👋')
-            navigate('/signin')
-        } catch (error) {
-            toast.error('Logout failed!')
-        }
+const handleLogout = async () => {
+    try {
+        await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
+        
+        // ✅ Clear session only
+        clearSessionUser()  // ✅ ADD THIS
+        localStorage.removeItem('userData')
+        
+        dispatch(setUserData(null))
+        toast.success('Logged out successfully! 👋')
+        navigate('/signin')
+    } catch (error) {
+        toast.error('Logout failed!')
     }
-
+}
     const toggleOnlineStatus = async () => {
         try {
             const newStatus = !isOnline

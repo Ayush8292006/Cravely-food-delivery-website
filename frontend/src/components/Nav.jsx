@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import LocationSelector from './LocationSelector';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
+import { clearSessionUser } from '../utils/auth'
 
 function Nav() {
     const { userData, cartItems, shopsInMyCity, currentCity } = useSelector(state => state.user)
@@ -57,17 +58,24 @@ function Nav() {
     }, [])
 
     const handleLogOut = async () => {
-        try {
-            await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
-            dispatch(setUserData(null))
-            setShowInfo(false)
-            toast.success('Logged out successfully! 👋')
-            navigate("/signin")
-        } catch (error) {
-            console.log(error)
-            toast.error('Logout failed!')
-        }
+    try {
+        await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
+        
+        // ✅ Clear session only (tab-specific)
+        clearSessionUser()  // ✅ ADD THIS
+        
+        // ✅ Clear localStorage user data
+        localStorage.removeItem('userData')
+        
+        dispatch(setUserData(null))
+        setShowInfo(false)
+        toast.success('Logged out successfully! 👋')
+        navigate("/signin")
+    } catch (error) {
+        console.log(error)
+        toast.error('Logout failed!')
     }
+}
 
     const handleSearch = (e) => {
         e.preventDefault()
