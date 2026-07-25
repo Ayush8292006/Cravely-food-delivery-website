@@ -355,43 +355,65 @@ export const resetPassword = async (req, res) => {
 export const googleAuth = async (req, res) => {
     try {
         const { fullName, email, mobile, role } = req.body
+        
+        console.log("🔍 Google Auth Request:", { fullName, email, role })
+
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" })
+        }
+
         let user = await User.findOne({ email })
         
         if (!user) {
             user = await User.create({
-                fullName, 
-                email, 
+                fullName: fullName || email.split('@')[0],
+                email: email,
                 mobile: mobile || "0000000000",
                 role: role || "user",
-                isEmailVerified: true
+                isEmailVerified: true,
+                isApproved: true
             })
+            console.log("✅ New user created:", user.email)
+        } else {
+            console.log("✅ Existing user found:", user.email)
         }
 
+        // ✅ GENERATE TOKEN
         const token = await genToken(user._id)
         
-        // ✅ FIXED COOKIE SETTINGS (SAME AS SIGNIN)
+        if (!token) {
+            return res.status(500).json({ message: "Failed to generate token" })
+        }
+
+        // ✅ SET COOKIE WITH PROPER OPTIONS
         res.cookie("token", token, {
-            secure: true,              // ✅ HTTPS ke liye
-            sameSite: "none",          // ✅ Cross-origin ke liye
+            secure: true,
+            sameSite: "none",
             maxAge: 7 * 24 * 60 * 60 * 1000,
             httpOnly: true,
-            path: '/',
-            domain: '.onrender.com'
+            path: '/'
         })
 
-        console.log("✅ Google Auth Token set for:", user.email)
+        console.log("✅ Token set for Google user:", user.email)
+        console.log("✅ Token:", token.substring(0, 20) + "...")
 
-        return res.status(200).json({
+        // ✅ Return user data (without password)
+        const userData = {
             _id: user._id,
             fullName: user.fullName,
             email: user.email,
             role: user.role,
             mobile: user.mobile,
-            isApproved: user.isApproved
-        })
+            isApproved: user.isApproved,
+            profilePhoto: user.profilePhoto
+        }
+
+        return res.status(200).json(userData)
         
     } catch (error) {
         console.log("❌ Google Auth error:", error.message)
-        return res.status(500).json({ message: `Google Authentication error ${error.message}` })
+        return res.status(500).json({ 
+            message: `Google Authentication error: ${error.message}` 
+        })
     }
 }
