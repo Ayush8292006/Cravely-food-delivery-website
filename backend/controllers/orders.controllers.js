@@ -267,35 +267,44 @@ export const verifyRazorpay = async (req, res) => {
 export const getMyOrders = async (req, res) => {
     try {
         const user = await User.findById(req.userId)
+        
+        if (!user) {
+            return res.status(404).json({ message: "User not found" })
+        }
+
+        let orders = []
+
         if (user.role === "user") {
-            const orders = await Order.find({ user: req.userId })
+            orders = await Order.find({ user: req.userId })
                 .sort({ createdAt: -1 })
                 .populate("shopOrders.shop", "name")
                 .populate("shopOrders.owner", "name email mobile")
                 .populate("shopOrders.shopOrderItems.item", "name image price")
-
-            return res.status(200).json(orders)
-        } else if (user.role === "owner") {
-            const orders = await Order.find({ "shopOrders.owner": req.userId })
+        } 
+        else if (user.role === "owner") {
+            const allOrders = await Order.find({ "shopOrders.owner": req.userId })
                 .sort({ createdAt: -1 })
                 .populate("shopOrders.shop", "name")
                 .populate("user")
                 .populate("shopOrders.shopOrderItems.item", "name image price")
                 .populate("shopOrders.assignedDeliveryBoy", "fullName mobile")
 
-            const filteredOrders = orders.map(order => ({
+            orders = allOrders.map(order => ({
                 ...order._doc,
                 shopOrders: order.shopOrders.filter(o => 
                     o.owner._id.toString() === req.userId.toString()
                 )
             })).filter(order => order.shopOrders.length > 0)
-
-            return res.status(200).json(filteredOrders)
         }
-        return res.status(200).json([])
+
+        // ✅ FIX: Always return 200 with orders array (even if empty)
+        return res.status(200).json(orders)
 
     } catch (error) {
-        return res.status(500).json({ message: `get My order error ${error}` })
+        console.log("❌ Get my orders error:", error.message)
+        return res.status(500).json({ 
+            message: `get my order error: ${error.message}` 
+        })
     }
 }
 
@@ -929,3 +938,5 @@ export const getMyOrdersWithFilters = async (req, res) => {
         return res.status(500).json({ message: `Get orders error: ${error.message}` })
     }
 }
+
+ 
