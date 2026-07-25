@@ -13,8 +13,8 @@ import CreateEditShop from "./pages/CreateEditShop"
 import AddItem from "./pages/AddItem"
 import EditItem from "./pages/EditItem"
 import useGetShopByCity from "../hooks/useGetShopByCity"
-// ✅ FIX: Named import
-import { useGetItemsByCity } from "../hooks/useGetItemsByCity"  // ✅ Changed
+// ✅ FIX: Changed to named import
+import { useGetItemsByCity } from "../hooks/useGetItemsByCity"  // ✅ LINE 16 FIXED
 import CartPage from "./pages/CartPage"
 import CheckOut from "./pages/CheckOut"
 import OrderPlaced from "./pages/OrderPlaced"
@@ -60,7 +60,7 @@ function App() {
   useGetCity()
   useGetMyShop()
   useGetShopByCity()
-  useGetItemsByCity()  // ✅ FIX: Use named import
+  useGetItemsByCity()  // ✅ FIXED: Correct function name
   useGetMyOrders()
 
   useEffect(() => {
