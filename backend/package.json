@@ -5,6 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "start": "node server.js",
     "dev": "nodemon index.js"
   },
   "author": "Akash Yadav",
