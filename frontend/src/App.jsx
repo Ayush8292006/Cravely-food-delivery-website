@@ -45,7 +45,7 @@ import OwnerDashboard from './components/OwnerDashboard'
 import OwnerMyOrders from './pages/OwnerMyOrders'
 import DeliveryBoy from './components/DeliveryBoy'
 
-export const serverUrl = import.meta.env.VITE_API_URL || "http://localhost:5000"
+export const serverUrl = "https://cravely-backend-dmak.onrender.com"
 
 function App() {
   const { userData } = useSelector(state => state.user)

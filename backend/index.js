@@ -11,7 +11,7 @@ import itemRouter from "./routes/item.routes.js"
 import orderRouter from "./routes/order.routes.js"
 import reviewRouter from "./routes/review.routes.js"
 import deliveryBoyRatingRouter from "./routes/deliveryBoyRating.routes.js"
-import superAdminRouter from "./routes/superAdmin.routes.js"  // ✅ CHECK
+import superAdminRouter from "./routes/superAdmin.routes.js"
 import http from "http"
 import { Server } from "socket.io"
 import { socketHandler } from "./socket.js"
@@ -19,12 +19,20 @@ import { socketHandler } from "./socket.js"
 const app = express()
 const server = http.createServer(app)
 
+// ✅ GET FRONTEND URL FROM ENVIRONMENT
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+
+// ✅ UPDATED CORS WITH FRONTEND URL
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
-    'https://skybite-food-delivery.onrender.com'
+    FRONTEND_URL,  // ✅ This will use your Vercel URL
+    'https://cravely-backend-dmak.onrender.com',
+    'https://cravely-food-delivery-website.vercel.app'  // ✅ Hardcode bhi kar do
 ]
+
+console.log('✅ CORS allowed origins:', allowedOrigins)
 
 const io = new Server(server, {
     cors: {
@@ -44,7 +52,6 @@ app.use(cors({
 app.use(express.json())
 app.use(cookieParser())
 
-// ✅ ROUTES - ALL SHOULD BE HERE
 app.use("/api/auth", authRouter)
 app.use("/api/user", userRouter)
 app.use("/api/shop", shopRouter)
@@ -52,7 +59,7 @@ app.use("/api/item", itemRouter)
 app.use("/api/order", orderRouter)
 app.use("/api/review", reviewRouter)
 app.use("/api/delivery-rating", deliveryBoyRatingRouter)
-app.use("/api/super-admin", superAdminRouter)  // ✅ YEH HONA CHAHIYE
+app.use("/api/super-admin", superAdminRouter)
 
 app.get('/', (req, res) => {
     res.json({
@@ -67,4 +74,5 @@ socketHandler(io)
 server.listen(port, () => {
     connectDb()
     console.log(`🚀 Server started at http://localhost:${port}`)
+    console.log(`✅ Frontend URL: ${FRONTEND_URL}`)
 })
