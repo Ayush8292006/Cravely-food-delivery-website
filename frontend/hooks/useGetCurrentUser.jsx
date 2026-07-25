@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react"
 import { serverUrl } from "../src/App"
 import { useDispatch, useSelector } from "react-redux"
 import { setUserData } from "../src/redux/userSlice"
-import { getSessionUser, setSessionUser, clearSessionUser } from "../src/utils/auth"  // ✅ ADD THIS
 
 function useGetCurrentUser() {
     const dispatch = useDispatch()
@@ -11,23 +10,19 @@ function useGetCurrentUser() {
     const hasFetched = useRef(false)
 
     useEffect(() => {
-        // ✅ Check sessionStorage first (tab-specific)
-        const sessionUser = getSessionUser()  // ✅ ADD THIS
-        if (sessionUser && sessionUser._id) {
-            console.log("✅ User from session:", sessionUser.fullName)
-            dispatch(setUserData(sessionUser))
-            hasFetched.current = true
+        // ✅ If user already exists in Redux, skip fetch
+        if (userData && userData._id) {
+            console.log("✅ User already in Redux, skipping fetch")
             return
         }
 
-        // ✅ Check localStorage (fallback)
+        // ✅ Check localStorage
         const stored = localStorage.getItem('userData')
         if (stored) {
             try {
                 const parsed = JSON.parse(stored)
                 if (parsed && parsed._id) {
-                    // ✅ Store in session for this tab
-                    setSessionUser(parsed)  // ✅ ADD THIS
+                    console.log("✅ User from localStorage:", parsed.fullName)
                     dispatch(setUserData(parsed))
                     hasFetched.current = true
                     return
@@ -37,6 +32,7 @@ function useGetCurrentUser() {
             }
         }
 
+        // ✅ Prevent multiple fetches
         if (hasFetched.current) {
             console.log("⏳ Already fetched once, skipping")
             return
@@ -51,20 +47,14 @@ function useGetCurrentUser() {
                 )
                 if (result.data && result.data._id) {
                     console.log("✅ User fetched:", result.data.fullName)
-                    
-                    // ✅ Save in session storage (tab-specific)
-                    setSessionUser(result.data)  // ✅ ADD THIS
-                    
-                    // ✅ Also save in localStorage (for other tabs)
-                    localStorage.setItem('userData', JSON.stringify(result.data))
-                    
                     dispatch(setUserData(result.data))
+                    localStorage.setItem('userData', JSON.stringify(result.data))
                 }
                 hasFetched.current = true
             } catch (error) {
                 console.log("❌ Fetch user error:", error.response?.data || error.message)
                 hasFetched.current = true
-                clearSessionUser()  // ✅ ADD THIS
+                // ✅ Clear invalid data
                 localStorage.removeItem('userData')
                 dispatch(setUserData(null))
             }
