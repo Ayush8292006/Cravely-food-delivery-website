@@ -13,8 +13,7 @@ import CreateEditShop from "./pages/CreateEditShop"
 import AddItem from "./pages/AddItem"
 import EditItem from "./pages/EditItem"
 import useGetShopByCity from "../hooks/useGetShopByCity"
-// ✅ FIX: Changed to named import
-import { useGetItemsByCity } from "../hooks/useGetItemsByCity"  // ✅ LINE 16 FIXED
+import { useGetItemsByCity } from "../hooks/useGetItemsByCity"
 import CartPage from "./pages/CartPage"
 import CheckOut from "./pages/CheckOut"
 import OrderPlaced from "./pages/OrderPlaced"
@@ -60,7 +59,7 @@ function App() {
   useGetCity()
   useGetMyShop()
   useGetShopByCity()
-  useGetItemsByCity()  // ✅ FIXED: Correct function name
+  useGetItemsByCity()
   useGetMyOrders()
 
   useEffect(() => {
@@ -134,10 +133,12 @@ function App() {
             <Route path='/about' element={<About />} />
             <Route path='/contact' element={<Contact />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            
             <Route path='/signup' element={!userData ? <SignUp /> : <Navigate to={"/"} />} />
             <Route path='/signin' element={!userData ? <SignIn /> : <Navigate to={"/"} />} />
             <Route path='/forgot-password' element={!userData ? <ForgotPassword /> : <Navigate to={"/"} />} />
             <Route path='/login-otp' element={!userData ? <LoginOtp /> : <Navigate to={"/"} />} />
+            
             <Route path='/admin/login' element={<SuperAdminLogin />} />
             <Route path='/admin/dashboard' element={userData?.role === 'superAdmin' ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/users' element={userData?.role === 'superAdmin' ? <AdminUsers /> : <Navigate to="/admin/login" />} />
@@ -145,8 +146,10 @@ function App() {
             <Route path='/admin/orders' element={userData?.role === 'superAdmin' ? <AdminOrders /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/delivery-boys' element={userData?.role === 'superAdmin' ? <AdminDeliveryBoys /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/revenue' element={userData?.role === 'superAdmin' ? <AdminRevenue /> : <Navigate to="/admin/login" />} />
+            
             <Route path='/owner-dashboard' element={userData?.role === 'owner' ? <OwnerDashboard /> : <Navigate to="/signin" />} />
             <Route path='/owner-orders' element={userData?.role === 'owner' ? <OwnerMyOrders /> : <Navigate to="/signin" />} />
+            
             <Route path='/home' element={userData ? <Home /> : <Navigate to={"/signin"} />} />
             <Route path='/restaurants' element={userData ? <Restaurants /> : <Navigate to={"/signin"} />} />
             <Route path='/create-edit-shop' element={userData ? <CreateEditShop /> : <Navigate to={"/signin"} />} />
@@ -160,6 +163,7 @@ function App() {
             <Route path='/category/:categoryName' element={userData ? <CategoryPage /> : <Navigate to={"/signin"} />} />
             <Route path='/track-order/:orderId' element={userData ? <TrackOrderPage /> : <Navigate to={"/signin"} />} />
             <Route path='/shop/:shopId' element={userData ? <Shop /> : <Navigate to={"/signin"} />} />
+            
             <Route path='/delivery-earnings' element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/signin" />} />
             <Route path='/delivery-dashboard' element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/signin" />} />
           </Routes>
