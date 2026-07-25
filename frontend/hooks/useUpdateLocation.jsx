@@ -10,10 +10,15 @@ function useUpdateLocation() {
     const { userData } = useSelector(state => state.user)
 
     useEffect(() => {
-        // ✅ Check if user is logged in
         if (!userData?._id) return
 
         const updateLocation = async (lat, lon) => {
+            // ✅ VALIDATE COORDINATES BEFORE SENDING
+            if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+                console.log("⏳ Invalid coordinates, skipping update")
+                return
+            }
+
             try {
                 const result = await axios.post(`${serverUrl}/api/user/update-location`, 
                     { lat, lon },
@@ -21,7 +26,6 @@ function useUpdateLocation() {
                 )
                 console.log("✅ Location updated:", result.data)
             } catch (error) {
-                // ✅ Ignore 400 error - user location might not be set yet
                 if (error.response?.status === 400) {
                     console.log("⏳ Location not set yet, will retry...")
                 } else {
@@ -30,11 +34,16 @@ function useUpdateLocation() {
             }
         }
 
-        // ✅ Only run if geolocation is available
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(
                 (pos) => {
-                    updateLocation(pos.coords.latitude, pos.coords.longitude)
+                    const lat = pos.coords.latitude
+                    const lon = pos.coords.longitude
+                    
+                    // ✅ Log coordinates for debugging
+                    console.log("📍 Got location:", { lat, lon })
+                    
+                    updateLocation(lat, lon)
                 },
                 (error) => {
                     console.log("📍 Geolocation error:", error.message)

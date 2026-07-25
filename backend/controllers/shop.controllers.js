@@ -122,6 +122,7 @@ export const getShopByCity = async (req, res) => {
     try {
         const { city } = req.params
 
+        // ✅ VALIDATION
         if (!city || !city.trim()) {
             return res.status(400).json({ 
                 message: "City is required" 
@@ -132,6 +133,7 @@ export const getShopByCity = async (req, res) => {
             city: { $regex: new RegExp(`^${city}$`, "i") }
         }).populate("items")
 
+        // ✅ Return empty array (not 400)
         return res.status(200).json(shops)
 
     } catch (error) {
