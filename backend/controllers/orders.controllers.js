@@ -929,6 +929,7 @@ export const getMyOrdersWithFilters = async (req, res) => {
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(parseInt(limit))
+            .populate("user", "fullName email mobile")  // ✅ ADD THIS
             .populate("shopOrders.shop", "name")
             .populate("shopOrders.owner", "name email mobile")
             .populate("shopOrders.shopOrderItems.item", "name image price")
@@ -946,5 +947,3 @@ export const getMyOrdersWithFilters = async (req, res) => {
         return res.status(500).json({ message: `Get orders error: ${error.message}` })
     }
 }
-
-    

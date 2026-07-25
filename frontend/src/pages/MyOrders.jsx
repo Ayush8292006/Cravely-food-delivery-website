@@ -77,26 +77,29 @@ function MyOrders() {
         }
     }, [socket])
 
-    const fetchOrders = async () => {
-        setLoading(true)
-        try {
-            const queryParams = new URLSearchParams()
-            if (filters.status !== 'all') queryParams.append('status', filters.status)
-            if (filters.paymentMethod !== 'all') queryParams.append('paymentMethod', filters.paymentMethod)
-            if (filters.startDate) queryParams.append('startDate', filters.startDate)
-            if (filters.endDate) queryParams.append('endDate', filters.endDate)
+   const fetchOrders = async () => {
+    setLoading(true)
+    try {
+        const queryParams = new URLSearchParams()
+        if (filters.status !== 'all') queryParams.append('status', filters.status)
+        if (filters.paymentMethod !== 'all') queryParams.append('paymentMethod', filters.paymentMethod)
+        if (filters.startDate) queryParams.append('startDate', filters.startDate)
+        if (filters.endDate) queryParams.append('endDate', filters.endDate)
 
-            const result = await axios.get(
-                `${serverUrl}/api/order/my-orders-filtered?${queryParams.toString()}`,
-                { withCredentials: true }
-            )
-            setFilteredOrders(result.data.orders)
-            setLoading(false)
-        } catch (error) {
-            console.log(error)
-            setLoading(false)
-        }
+        const result = await axios.get(
+            `${serverUrl}/api/order/my-orders-filtered?${queryParams.toString()}`,
+            { withCredentials: true }
+        )
+        
+        // ✅ FIX: Ensure user data is populated
+        const orders = result.data.orders || []
+        setFilteredOrders(orders)
+        setLoading(false)
+    } catch (error) {
+        console.log("❌ Fetch orders error:", error)
+        setLoading(false)
     }
+}
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target
@@ -580,3 +583,5 @@ function MyOrders() {
 }
 
 export default MyOrders
+
+ 
