@@ -85,39 +85,49 @@ function SignIn() {
         }
     }
 
-   const handleGoogleAuth = async () => {
-    const provider = new GoogleAuthProvider()
-    const result = await signInWithPopup(auth, provider)
-
+const handleGoogleAuth = async () => {
+    setLoading(true)
+    
     try {
+        const provider = new GoogleAuthProvider()
+        provider.addScope('profile')
+        provider.addScope('email')
+        
+        const result = await signInWithPopup(auth, provider)
+        
+        console.log("✅ Google User:", result.user)
+        
         const { data } = await axios.post(
             `${serverUrl}/api/auth/google-auth`,
             {
-                fullName: result.user.displayName,
-                email: result.user.email, 
-                role: role,
-                mobile: result.user.phoneNumber || "0000000000"
-            }, 
+                email: result.user.email
+            },
             { 
-                withCredentials: true,  // ✅ MUST BE TRUE
+                withCredentials: true,
                 headers: { 'Content-Type': 'application/json' }
             }
         )
         
         dispatch(setUserData(data))
         
-        // ✅ Check cookie after login
-        console.log("✅ Google Auth successful")
-        console.log("📝 Cookies:", document.cookie)
-
-        toast.success("Signed up successfully with Google!")
+        toast.success("Signed in successfully with Google! 🎉")
+        
         setTimeout(() => {
-            navigate("/");
-        }, 2000);
+            navigate("/")
+        }, 2000)
         
     } catch (error) {
-        console.log("❌ Google auth error:", error)
-        toast.error("Google sign up failed!")
+        console.log("❌ Google Signin Error:", error)
+        
+        if (error.code === 'auth/popup-closed-by-user') {
+            toast.error("Popup was closed. Please try again.")
+        } else if (error.code === 'auth/unauthorized-domain') {
+            toast.error("Domain not authorized. Please contact support.")
+        } else {
+            toast.error(error.message || "Google sign in failed!")
+        }
+    } finally {
+        setLoading(false)
     }
 }
 

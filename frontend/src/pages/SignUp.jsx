@@ -85,38 +85,56 @@ function SignUp() {
     }
 
 const handleGoogleAuth = async () => {
-    const provider = new GoogleAuthProvider()
-    const result = await signInWithPopup(auth, provider)
-
+    // ✅ Show loading state
+    setLoading(true)
+    
     try {
+        const provider = new GoogleAuthProvider()
+        
+        // ✅ Add these scopes
+        provider.addScope('profile')
+        provider.addScope('email')
+        
+        const result = await signInWithPopup(auth, provider)
+        
+        console.log("✅ Google User:", result.user)
+        console.log("✅ Google User Email:", result.user.email)
+        
         const { data } = await axios.post(
             `${serverUrl}/api/auth/google-auth`,
             {
-                fullName: result.user.displayName,
-                email: result.user.email, 
+                fullName: result.user.displayName || result.user.email.split('@')[0],
+                email: result.user.email,
                 role: role,
                 mobile: result.user.phoneNumber || "0000000000"
-            }, 
+            },
             { 
-                withCredentials: true,  // ✅ MUST BE TRUE
+                withCredentials: true,
                 headers: { 'Content-Type': 'application/json' }
             }
         )
         
         dispatch(setUserData(data))
         
-        // ✅ Check cookie after login
-        console.log("✅ Google Auth successful")
-        console.log("📝 Cookies:", document.cookie)
-
-        toast.success("Signed up successfully with Google!")
+        toast.success("Signed up successfully with Google! 🎉")
+        
         setTimeout(() => {
-            navigate("/");
-        }, 2000);
+            navigate("/")
+        }, 2000)
         
     } catch (error) {
-        console.log("❌ Google auth error:", error)
-        toast.error("Google sign up failed!")
+        console.log("❌ Google Auth Error:", error)
+        
+        // ✅ Handle specific errors
+        if (error.code === 'auth/popup-closed-by-user') {
+            toast.error("Popup was closed. Please try again.")
+        } else if (error.code === 'auth/unauthorized-domain') {
+            toast.error("Domain not authorized. Please contact support.")
+        } else {
+            toast.error(error.message || "Google sign up failed!")
+        }
+    } finally {
+        setLoading(false)
     }
 }
 
