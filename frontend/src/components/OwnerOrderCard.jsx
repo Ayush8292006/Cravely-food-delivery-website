@@ -23,6 +23,7 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
     const [isUpdating, setIsUpdating] = useState(false)
     const [assigningBoy, setAssigningBoy] = useState(null)
     const [fetchingBoys, setFetchingBoys] = useState(false)
+    const [isAssigned, setIsAssigned] = useState(false)  // ✅ NEW: Track assignment status
 
     // ✅ FIX: data.shopOrders is an ARRAY
     const shopOrder = data.shopOrders?.[0] || data.shopOrders || {}
@@ -42,6 +43,17 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
     console.log("🏪 Shop ID:", shopId)
     console.log("📊 Status:", status)
     console.log("📦 Shop Order:", shopOrder)
+    console.log("👤 Assigned Boy:", assignedBoy)
+
+    // ✅ Check if delivery boy is actually assigned (accepted)
+    useEffect(() => {
+        // ✅ Only show assigned if status is 'out of delivery' AND assignedBoy exists
+        if (status === 'out of delivery' && assignedBoy) {
+            setIsAssigned(true)
+        } else {
+            setIsAssigned(false)
+        }
+    }, [status, assignedBoy])
 
     // ✅ Status Config
     const statusConfig = {
@@ -175,7 +187,7 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
         }
     }
 
-    // ✅ Handle Assign Delivery Boy
+    // ✅ Handle Assign Delivery Boy - FIXED
     const handleAssignDeliveryBoy = async (boyId) => {
         if (!boyId) {
             toast.error('Please select a delivery boy')
@@ -212,6 +224,12 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
                     { withCredentials: true }
                 )
                 console.log("✅ Accept Order Response:", acceptResult.data)
+                
+                // ✅ If acceptance successful, set assigned status
+                if (acceptResult.data.message === 'order accepted') {
+                    setIsAssigned(true)
+                    toast.success('✅ Delivery boy assigned and order accepted!')
+                }
             }
 
             // ✅ Update Redux
@@ -366,34 +384,43 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
                     </div>
                 )}
 
-                {/* ✅ Delivery Boy Assignment */}
+                {/* ✅ Delivery Boy Assignment - FIXED */}
                 {(status === 'out of delivery' || showBoysList) && (
                     <motion.div 
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         className='mt-3 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20'
                     >
-                        {assignedBoy ? (
-                            // ✅ Assigned Delivery Boy
+                        {isAssigned && assignedBoy ? (
+                            // ✅ Delivery Boy IS Assigned (Accepted)
                             <div className='flex items-center gap-3'>
-                                <div className='w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center'>
-                                    <FaMotorcycle className='text-orange-400 text-2xl' />
+                                <div className='w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center'>
+                                    <FaMotorcycle className='text-green-400 text-2xl' />
                                 </div>
                                 <div className='flex-1'>
                                     <p className='text-white font-semibold text-sm flex items-center gap-2'>
                                         {assignedBoy.fullName}
-                                        <span className='text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1'>
-                                            <FaCircle size={6} className='text-green-400 animate-pulse' /> Assigned
+                                        <span className='text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1 border border-green-500/30'>
+                                            <FaCheck size={10} /> Accepted
                                         </span>
                                     </p>
                                     <p className='text-white/40 text-xs flex items-center gap-2'>
                                         <FaPhone size={10} /> {assignedBoy.mobile}
                                         <a href={`tel:${assignedBoy.mobile}`} className='text-[#ff6b35] hover:underline text-xs'>Call</a>
+                                        <a href={`https://wa.me/${assignedBoy.mobile}`} target="_blank" rel="noopener noreferrer" className='text-green-400 hover:underline text-xs'>
+                                            <FaWhatsapp size={12} /> WhatsApp
+                                        </a>
                                     </p>
                                 </div>
+                                {assignedBoy.deliveryBoyRating?.average > 0 && (
+                                    <div className='flex items-center gap-1 bg-yellow-500/10 px-2 py-1 rounded-full'>
+                                        <FaStar className='text-yellow-400 text-[10px]' />
+                                        <span className='text-white/60 text-[10px]'>{assignedBoy.deliveryBoyRating.average.toFixed(1)}</span>
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            // ✅ Available Delivery Boys
+                            // ✅ No Delivery Boy Assigned Yet - Show Available Boys
                             <div>
                                 <div className='flex items-center justify-between mb-3'>
                                     <p className='text-white/70 text-sm font-medium flex items-center gap-2'>

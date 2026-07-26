@@ -31,8 +31,7 @@ function DeliveryBoy() {
     const [otp, setOtp] = useState("")
     const [todayDeliveries, setTodayDeliveries] = useState([])
     
-    // ✅ OTP Display State
-    const [otpDisplay, setOtpDisplay] = useState(null)
+    // ✅ OTP State - NO OTP DISPLAY
     const [otpSentTo, setOtpSentTo] = useState("")
     const [otpSentEmail, setOtpSentEmail] = useState("")
     const [otpExpiry, setOtpExpiry] = useState(null)
@@ -56,8 +55,7 @@ function DeliveryBoy() {
     const isApproved = userData?.isApproved === true
     const isPendingApproval = userData?.isApproved === false || userData?.isApproved === undefined
 
-    // ✅ FIXED: Use fixed rate instead of userData?.ratePerDelivery
-    const ratePerDelivery = 50  // Fixed rate per delivery
+    const ratePerDelivery = 50
     const totalEarning = todayDeliveries.reduce((sum, d) => sum + d.count * ratePerDelivery, 0)
     const totalDeliveriesToday = todayDeliveries.reduce((sum, d) => sum + d.count, 0)
 
@@ -269,7 +267,7 @@ function DeliveryBoy() {
         }
     }
 
-    // ✅ Send OTP - Complete with Display
+    // ✅ Send OTP - NO OTP DISPLAY
     const sendOtp = async () => {
         if (!currentOrder) {
             toast.error('No active order found')
@@ -285,23 +283,21 @@ function DeliveryBoy() {
             
             console.log("✅ OTP Response:", response.data)
             
-            // ✅ Get OTP from response
-            const otpCode = response.data.otp
+            // ✅ Get customer info (NO OTP)
             const userName = response.data.userName || currentOrder?.user?.fullName || 'Customer'
             const userEmail = response.data.userEmail || currentOrder?.user?.email || ''
             
-            // ✅ Set OTP Display
-            setOtpDisplay(otpCode)
+            // ✅ Store customer info
             setOtpSentTo(userName)
             setOtpSentEmail(userEmail)
-            setOtpExpiry(new Date(Date.now() + 5 * 60 * 1000)) // 5 minutes expiry
+            setOtpExpiry(new Date(Date.now() + 5 * 60 * 1000))
             
             // ✅ Show OTP Box
             setShowOtpBox(true)
             
-            // ✅ Toast notifications
+            // ✅ Toast - NO OTP
             toast.success(`📩 OTP sent to ${userName}`)
-            toast.info(`🔑 OTP: ${otpCode}`)
+            toast.info(`🔑 Ask customer for the OTP code`)
             
             setLoading(false)
         } catch (error) {
@@ -333,14 +329,6 @@ function DeliveryBoy() {
         } catch (error) {
             console.log('❌ Verify OTP error:', error)
             toast.error("❌ OTP verification failed")
-        }
-    }
-
-    // ✅ Copy OTP to clipboard
-    const copyOtpToClipboard = () => {
-        if (otpDisplay) {
-            navigator.clipboard.writeText(otpDisplay)
-            toast.success('📋 OTP copied to clipboard!')
         }
     }
 
@@ -390,7 +378,6 @@ function DeliveryBoy() {
                 const now = new Date()
                 if (now > otpExpiry) {
                     toast.warning('⏰ OTP has expired! Please request a new one.')
-                    setOtpDisplay(null)
                     setShowOtpBox(false)
                     setOtpExpiry(null)
                 }
@@ -418,17 +405,6 @@ function DeliveryBoy() {
 
     const locationDisplayText = getLocationDisplay()
     const isCityAvailable = currentCity && currentCity !== "Unknown" && !locationLoading
-
-    // ✅ Calculate remaining time for OTP
-    const getRemainingTime = () => {
-        if (!otpExpiry) return null
-        const now = new Date()
-        const diff = Math.floor((otpExpiry - now) / 1000)
-        if (diff <= 0) return null
-        const mins = Math.floor(diff / 60)
-        const secs = diff % 60
-        return `${mins}:${secs.toString().padStart(2, '0')}`
-    }
 
     return (
         <div className='min-h-screen bg-[#0a0a0f] relative overflow-hidden pt-[70px] pb-[70px] md:pb-0'>
@@ -621,7 +597,7 @@ function DeliveryBoy() {
                                 }
                             }} />
 
-                            {/* ✅ OTP Section */}
+                            {/* ✅ OTP Section - NO OTP DISPLAY */}
                             {!showOtpBox ? (
                                 <motion.button 
                                     whileHover={{ scale: 1.02 }}
@@ -638,39 +614,21 @@ function DeliveryBoy() {
                                     animate={{ opacity: 1, y: 0 }}
                                     className='mt-4 p-4 rounded-2xl bg-white/5 border border-white/5'
                                 >
-                                    {/* ✅ OTP Display Box */}
-                                    {otpDisplay && (
-                                        <div className='mb-4 p-4 rounded-xl bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 text-center'>
-                                            <div className='flex items-center justify-between mb-2'>
-                                                <p className='text-white/60 text-xs uppercase tracking-wider'>🔑 Delivery OTP</p>
-                                                <div className='flex items-center gap-2'>
-                                                    <span className='text-xs text-white/30'>
-                                                        ⏱️ {getRemainingTime() || 'Expired'}
-                                                    </span>
-                                                    <button 
-                                                        onClick={copyOtpToClipboard}
-                                                        className='text-white/40 hover:text-white transition text-xs p-1 rounded hover:bg-white/10'
-                                                    >
-                                                        <FaCopy size={12} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <p className='text-5xl font-bold text-yellow-400 tracking-[0.3em] my-2 font-mono'>
-                                                {otpDisplay}
+                                    {/* ✅ OTP Sent Info - NO OTP CODE */}
+                                    <div className='mb-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 text-center'>
+                                        <p className='text-white/60 text-xs uppercase tracking-wider'>🔑 Delivery OTP Sent</p>
+                                        <p className='text-white/70 text-sm mt-1'>
+                                            OTP sent to <span className='text-[#ff6b35] font-semibold'>{otpSentTo || 'Customer'}</span>
+                                        </p>
+                                        {otpSentEmail && (
+                                            <p className='text-white/30 text-[10px] mt-1'>
+                                                📧 Sent to: {otpSentEmail}
                                             </p>
-                                            <p className='text-white/40 text-xs'>
-                                                Share this OTP with <span className='text-white font-medium'>{otpSentTo || 'Customer'}</span>
-                                            </p>
-                                            {otpSentEmail && (
-                                                <p className='text-white/20 text-[10px] mt-1'>
-                                                    📧 OTP sent to: {otpSentEmail}
-                                                </p>
-                                            )}
-                                            <div className='mt-2 flex items-center justify-center gap-2'>
-                                                <span className='text-[10px] text-yellow-400/50'>⏳ Expires in 5 minutes</span>
-                                            </div>
+                                        )}
+                                        <div className='mt-2 flex items-center justify-center gap-2'>
+                                            <span className='text-[10px] text-yellow-400/50'>⏳ Ask customer for the OTP</span>
                                         </div>
-                                    )}
+                                    </div>
                                     
                                     <p className='text-white/70 text-sm mb-3 flex items-center gap-2'>
                                         <FaBell className='text-yellow-400' />
@@ -680,7 +638,7 @@ function DeliveryBoy() {
                                         <input 
                                             type="text" 
                                             className="flex-1 bg-[#18181D] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-[#ff2d55]/50 text-sm font-mono tracking-widest"
-                                            placeholder='Enter OTP'
+                                            placeholder='Enter OTP from customer'
                                             onChange={(e) => setOtp(e.target.value)}
                                             value={otp}
                                             maxLength={6}
@@ -856,7 +814,6 @@ function DeliveryBoy() {
                     </div>
                 </motion.div>
             </div>
-
 
             <style>{`
                 .glass-premium-ultra {
