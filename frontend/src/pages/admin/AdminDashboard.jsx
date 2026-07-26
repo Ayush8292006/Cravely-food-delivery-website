@@ -15,8 +15,6 @@ import { toast } from 'react-toastify'
 import { motion } from 'framer-motion'
 import AdminLayout from './AdminLayout'
 
-
-
 function AdminDashboard() {
     const navigate = useNavigate()
     const [stats, setStats] = useState(null)
@@ -159,7 +157,6 @@ function AdminDashboard() {
                         </div>
                         <p className="text-white/30 text-[10px] mt-2">{card.sub}</p>
                         
-                        {/* ✅ Shine Effect */}
                         <motion.div 
                             className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl"
                             animate={{ 
