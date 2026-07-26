@@ -888,5 +888,3 @@ function DeliveryBoy() {
 }
 
 export default DeliveryBoy
-
-otp
