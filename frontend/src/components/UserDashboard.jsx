@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import Nav from './Nav'
+import Nav from '../components/Nav.jsx'
 import { categories } from '../category'
 import CategoryCard from './CategoryCard'
 import ShopCard from '../components/ShopCard'
