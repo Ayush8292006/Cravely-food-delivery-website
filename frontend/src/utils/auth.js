@@ -10,6 +10,7 @@ export const getSessionId = () => {
 
 // ✅ Save user data for this session only
 export const setSessionUser = (userData) => {
+    if (!userData) return
     const sessionId = getSessionId()
     const key = `user_${sessionId}`
     localStorage.setItem(key, JSON.stringify(userData))
@@ -18,31 +19,38 @@ export const setSessionUser = (userData) => {
 
 // ✅ Get user data for current session
 export const getSessionUser = () => {
-    const sessionId = getSessionId()
-    const key = `user_${sessionId}`
-    
-    // First check sessionStorage (faster)
-    const sessionData = sessionStorage.getItem('currentUser')
-    if (sessionData) {
-        return JSON.parse(sessionData)
+    try {
+        const sessionId = getSessionId()
+        const key = `user_${sessionId}`
+        
+        const sessionData = sessionStorage.getItem('currentUser')
+        if (sessionData) {
+            return JSON.parse(sessionData)
+        }
+        
+        const localData = localStorage.getItem(key)
+        if (localData) {
+            return JSON.parse(localData)
+        }
+        
+        return null
+    } catch (e) {
+        console.log("❌ Error getting session user:", e)
+        return null
     }
-    
-    // Then check localStorage
-    const localData = localStorage.getItem(key)
-    if (localData) {
-        return JSON.parse(localData)
-    }
-    
-    return null
 }
 
 // ✅ Clear session user
 export const clearSessionUser = () => {
-    const sessionId = getSessionId()
-    const key = `user_${sessionId}`
-    localStorage.removeItem(key)
-    sessionStorage.removeItem('currentUser')
-    sessionStorage.removeItem('sessionId')
+    try {
+        const sessionId = getSessionId()
+        const key = `user_${sessionId}`
+        localStorage.removeItem(key)
+        sessionStorage.removeItem('currentUser')
+        sessionStorage.removeItem('sessionId')
+    } catch (e) {
+        console.log("❌ Error clearing session:", e)
+    }
 }
 
 // ✅ Check if user is logged in this session
