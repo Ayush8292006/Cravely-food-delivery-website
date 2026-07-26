@@ -33,7 +33,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 })
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_URL = import.meta.env.VITE_API_URL || "https://cravely-backend-dmak.onrender.com"
 
 function RecenterMap({ location }) {
     const map = useMap()
@@ -928,4 +928,3 @@ function CheckOut() {
 }
 
 export default CheckOut
-
