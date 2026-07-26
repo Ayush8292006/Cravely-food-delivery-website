@@ -69,6 +69,21 @@ function App() {
     return () => clearTimeout(timer)
   }, [])
 
+  // ✅ TOKEN CHECK - Force logout if token missing
+  useEffect(() => {
+    const hasToken = document.cookie.includes('token=')
+    const hasUserData = localStorage.getItem('userData')
+    
+    // If no token but userData exists, force logout
+    if (!hasToken && hasUserData) {
+      console.log("🔴 Token missing! Forcing logout...")
+      localStorage.removeItem('userData')
+      sessionStorage.clear()
+      dispatch({ type: 'user/clearUserData' })
+      window.location.href = '/landing'
+    }
+  }, [dispatch])
+
   useEffect(() => {
     if (!userData?._id) {
       if (socketRef.current) {
@@ -133,10 +148,12 @@ function App() {
             <Route path='/about' element={<About />} />
             <Route path='/contact' element={<Contact />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            
             <Route path='/signup' element={!userData ? <SignUp /> : <Navigate to={"/"} />} />
             <Route path='/signin' element={!userData ? <SignIn /> : <Navigate to={"/"} />} />
             <Route path='/forgot-password' element={!userData ? <ForgotPassword /> : <Navigate to={"/"} />} />
             <Route path='/login-otp' element={!userData ? <LoginOtp /> : <Navigate to={"/"} />} />
+            
             <Route path='/admin/login' element={<SuperAdminLogin />} />
             <Route path='/admin/dashboard' element={userData?.role === 'superAdmin' ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/users' element={userData?.role === 'superAdmin' ? <AdminUsers /> : <Navigate to="/admin/login" />} />
@@ -144,23 +161,27 @@ function App() {
             <Route path='/admin/orders' element={userData?.role === 'superAdmin' ? <AdminOrders /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/delivery-boys' element={userData?.role === 'superAdmin' ? <AdminDeliveryBoys /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/revenue' element={userData?.role === 'superAdmin' ? <AdminRevenue /> : <Navigate to="/admin/login" />} />
+            
             <Route path='/owner-dashboard' element={userData?.role === 'owner' ? <OwnerDashboard /> : <Navigate to="/signin" />} />
             <Route path='/owner-orders' element={userData?.role === 'owner' ? <OwnerMyOrders /> : <Navigate to="/signin" />} />
-            <Route path='/home' element={userData ? <Home /> : <Navigate to={"/signin"} />} />
-            <Route path='/restaurants' element={userData ? <Restaurants /> : <Navigate to={"/signin"} />} />
-            <Route path='/create-edit-shop' element={userData ? <CreateEditShop /> : <Navigate to={"/signin"} />} />
-            <Route path='/add-item' element={userData ? <AddItem /> : <Navigate to={"/signin"} />} />
-            <Route path='/edit-item/:itemId' element={userData ? <EditItem /> : <Navigate to={"/signin"} />} />
-            <Route path='/cart' element={userData ? <CartPage /> : <Navigate to={"/signin"} />} />
-            <Route path='/checkout' element={userData ? <CheckOut /> : <Navigate to={"/signin"} />} />
-            <Route path='/order-placed' element={userData ? <OrderPlaced /> : <Navigate to={"/signin"} />} />
-            <Route path='/profile' element={userData ? <Profile /> : <Navigate to={"/signin"} />} />
-            <Route path='/my-orders' element={userData ? <MyOrders /> : <Navigate to={"/signin"} />} />
-            <Route path='/category/:categoryName' element={userData ? <CategoryPage /> : <Navigate to={"/signin"} />} />
-            <Route path='/track-order/:orderId' element={userData ? <TrackOrderPage /> : <Navigate to={"/signin"} />} />
-            <Route path='/shop/:shopId' element={userData ? <Shop /> : <Navigate to={"/signin"} />} />
-            <Route path='/delivery-earnings' element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/signin" />} />
-            <Route path='/delivery-dashboard' element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/signin" />} />
+            
+            {/* ✅ FIXED: Redirect to /landing if not logged in */}
+            <Route path='/home' element={userData ? <Home /> : <Navigate to={"/landing"} />} />
+            <Route path='/restaurants' element={userData ? <Restaurants /> : <Navigate to={"/landing"} />} />
+            <Route path='/create-edit-shop' element={userData ? <CreateEditShop /> : <Navigate to={"/landing"} />} />
+            <Route path='/add-item' element={userData ? <AddItem /> : <Navigate to={"/landing"} />} />
+            <Route path='/edit-item/:itemId' element={userData ? <EditItem /> : <Navigate to={"/landing"} />} />
+            <Route path='/cart' element={userData ? <CartPage /> : <Navigate to={"/landing"} />} />
+            <Route path='/checkout' element={userData ? <CheckOut /> : <Navigate to={"/landing"} />} />
+            <Route path='/order-placed' element={userData ? <OrderPlaced /> : <Navigate to={"/landing"} />} />
+            <Route path='/profile' element={userData ? <Profile /> : <Navigate to={"/landing"} />} />
+            <Route path='/my-orders' element={userData ? <MyOrders /> : <Navigate to={"/landing"} />} />
+            <Route path='/category/:categoryName' element={userData ? <CategoryPage /> : <Navigate to={"/landing"} />} />
+            <Route path='/track-order/:orderId' element={userData ? <TrackOrderPage /> : <Navigate to={"/landing"} />} />
+            <Route path='/shop/:shopId' element={userData ? <Shop /> : <Navigate to={"/landing"} />} />
+            
+            <Route path='/delivery-earnings' element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />} />
+            <Route path='/delivery-dashboard' element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />} />
           </Routes>
         </div>
         {showFooter && <Footer />}

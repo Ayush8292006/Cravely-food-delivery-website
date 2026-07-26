@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'  // ✅ ADD useRef
 import { serverUrl } from '../src/App'
 import { useDispatch, useSelector } from 'react-redux'
 import { setCurrentAddress, setCurrentCity, setCurrentState } from '../src/redux/userSlice'
@@ -9,14 +9,26 @@ function useGetCity() {
     const dispatch = useDispatch()
     const { userData } = useSelector(state => state.user)
     const apiKey = import.meta.env.VITE_GEOAPIKEY
+    const hasFetched = useRef(false)  // ✅ ADD THIS
 
     useEffect(() => {
-        if (!userData?._id) return
+        // ✅ Check if user is logged in
+        if (!userData?._id) {
+            console.log("⏳ No user logged in, skipping location")
+            return
+        }
+
+        // ✅ Prevent multiple fetches
+        if (hasFetched.current) {
+            console.log("⏳ Location already fetched, skipping")
+            return
+        }
 
         if (!navigator.geolocation) {
             console.log("❌ Geolocation not supported")
             dispatch(setCurrentCity("Patna"))
             dispatch(setCurrentState("Bihar"))
+            hasFetched.current = true
             return
         }
 
@@ -29,10 +41,9 @@ function useGetCity() {
                     console.log("📍 Position:", { latitude, longitude })
                     dispatch(setLocation({ lat: latitude, lon: longitude }))
                     
-                    // ✅ FIX: No withCredentials for Geoapify
                     const result = await axios.get(
                         `https://api.geoapify.com/v1/geocode/reverse?lat=${latitude}&lon=${longitude}&format=json&apiKey=${apiKey}`,
-                        { withCredentials: false }  // ✅ Added this
+                        { withCredentials: false }
                     )
 
                     console.log("✅ Geoapify Response:", result.data)
@@ -63,13 +74,12 @@ function useGetCity() {
                         dispatch(setCurrentCity("Patna"))
                         dispatch(setCurrentState("Bihar"))
                     }
+                    hasFetched.current = true
                 } catch (error) {
                     console.log("❌ Geoapify Error:", error.message)
-                    // ✅ Fallback based on coordinates
                     const lat = position?.coords?.latitude || 25.6191
                     const lon = position?.coords?.longitude || 85.1335
                     
-                    // ✅ Detect city from coordinates (fallback)
                     let city = "Patna"
                     let state = "Bihar"
                     
@@ -80,15 +90,26 @@ function useGetCity() {
                     
                     dispatch(setCurrentCity(city))
                     dispatch(setCurrentState(state))
+                    hasFetched.current = true
                 }
             },
             (error) => {
                 console.log("❌ Geolocation Error:", error.message)
                 dispatch(setCurrentCity("Patna"))
                 dispatch(setCurrentState("Bihar"))
+                hasFetched.current = true
             }
         )
-    }, [userData?._id, dispatch])
+    }, [userData?._id, dispatch])  // ✅ Only run when user changes
+
+    // ✅ Reset fetch flag when user logs out
+    useEffect(() => {
+        if (!userData?._id) {
+            hasFetched.current = false
+        }
+    }, [userData?._id])
+
+    return null
 }
 
 export default useGetCity
