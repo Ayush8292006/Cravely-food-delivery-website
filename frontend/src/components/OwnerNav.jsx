@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import axios from 'axios'
 import { serverUrl } from '../App'
 import { setUserData } from '../redux/userSlice'
+import { clearSessionUser } from '../utils/auth'  // ✅ TOP PAR LAAO
 import { 
     FaHamburger, FaStore, FaUtensils, FaShoppingBag, 
     FaUserCircle, FaSignOutAlt, FaCrown, FaHome,
@@ -21,30 +22,25 @@ function OwnerNav() {
     const [showDropdown, setShowDropdown] = useState(false)
     const [notifications] = useState(3)
 
-import { clearSessionUser } from '../utils/auth'  // ✅ ADD THIS
-
-const handleLogout = async () => {
-    try {
-        await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
-        
-        // ✅ Clear session only
-        clearSessionUser()  // ✅ ADD THIS
-        localStorage.removeItem('userData')
-        
-        dispatch(setUserData(null))
-        toast.success('Logged out successfully! 👋')
-        navigate('/signin')
-    } catch (error) {
-        toast.error('Logout failed!')
+    const handleLogout = async () => {
+        try {
+            await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
+            clearSessionUser()
+            localStorage.removeItem('userData')
+            dispatch(setUserData(null))
+            toast.success('Logged out successfully! 👋')
+            navigate('/signin')
+        } catch (error) {
+            toast.error('Logout failed!')
+        }
     }
-}
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/95 backdrop-blur-2xl border-b border-white/5 shadow-2xl shadow-black/50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-[70px]">
                     
-                    {/* ✅ Logo */}
+                    {/* Logo */}
                     <div 
                         className="flex items-center gap-3 cursor-pointer group"
                         onClick={() => navigate('/owner-dashboard')}
@@ -62,7 +58,7 @@ const handleLogout = async () => {
                         </div>
                     </div>
 
-                    {/* ✅ Center - Quick Stats */}
+                    {/* Center - Quick Stats */}
                     <div className="hidden md:flex items-center gap-4">
                         <div className="flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
                             <FaStore className="text-[#ff6b35] text-sm" />
@@ -74,10 +70,9 @@ const handleLogout = async () => {
                         </div>
                     </div>
 
-                    {/* ✅ Right Actions */}
+                    {/* Right Actions */}
                     <div className="flex items-center gap-2 sm:gap-3">
                         
-                        {/* ✅ Add Item - Quick Action */}
                         {myShopData?.isApproved && (
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
@@ -89,7 +84,6 @@ const handleLogout = async () => {
                             </motion.button>
                         )}
 
-                        {/* ✅ Orders - Fixed Navigation */}
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -99,7 +93,6 @@ const handleLogout = async () => {
                             <FaShoppingBag size={18} />
                         </motion.button>
 
-                        {/* ✅ Notifications */}
                         <div className="relative">
                             <button className="text-white/50 hover:text-white p-2 rounded-full hover:bg-white/5 transition-all duration-300">
                                 <FaBell size={18} />
@@ -111,7 +104,7 @@ const handleLogout = async () => {
                             </button>
                         </div>
 
-                        {/* ✅ Profile Dropdown */}
+                        {/* Profile Dropdown */}
                         <div className="relative">
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
@@ -122,7 +115,6 @@ const handleLogout = async () => {
                                 {userData?.fullName?.charAt(0) || 'O'}
                             </motion.button>
 
-                            {/* Dropdown */}
                             {showDropdown && (
                                 <motion.div
                                     initial={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -130,7 +122,6 @@ const handleLogout = async () => {
                                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                     className="absolute right-0 mt-2 w-56 bg-[#1a1a2e]/98 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl shadow-black/60 overflow-hidden z-50"
                                 >
-                                    {/* User Info */}
                                     <div className="p-4 border-b border-white/10">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#ff2d55] to-[#ff6b35] flex items-center justify-center text-white font-bold text-sm">
@@ -143,7 +134,6 @@ const handleLogout = async () => {
                                         </div>
                                     </div>
 
-                                    {/* Menu Items */}
                                     <div className="p-2 space-y-1">
                                         <button
                                             className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-200 text-sm"
@@ -186,48 +176,19 @@ const handleLogout = async () => {
                 </div>
             </div>
 
-            {/* ✅ Mobile Bottom Nav - Fixed */}
+            {/* Mobile Bottom Nav */}
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0a0a0f]/95 backdrop-blur-2xl border-t border-white/5 px-4 py-2">
                 <div className="flex items-center justify-around">
-                    <button 
-                        className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition"
-                        onClick={() => navigate('/owner-dashboard')}
-                    >
-                        <FaHome size={18} />
-                        <span className="text-[8px]">Home</span>
-                    </button>
-                    <button 
-                        className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition"
-                        onClick={() => navigate('/add-item')}
-                    >
-                        <FaPlus size={18} />
-                        <span className="text-[8px]">Add</span>
-                    </button>
-                    <button 
-                        className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition"
-                        onClick={() => navigate('/owner-orders')}
-                    >
-                        <FaShoppingBag size={18} />
-                        <span className="text-[8px]">Orders</span>
-                    </button>
-                    <button 
-                        className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition"
-                        onClick={() => navigate('/profile')}
-                    >
-                        <FaUserCircle size={18} />
-                        <span className="text-[8px]">Profile</span>
-                    </button>
+                    <button className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition" onClick={() => navigate('/owner-dashboard')}><FaHome size={18} /><span className="text-[8px]">Home</span></button>
+                    <button className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition" onClick={() => navigate('/add-item')}><FaPlus size={18} /><span className="text-[8px]">Add</span></button>
+                    <button className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition" onClick={() => navigate('/owner-orders')}><FaShoppingBag size={18} /><span className="text-[8px]">Orders</span></button>
+                    <button className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition" onClick={() => navigate('/profile')}><FaUserCircle size={18} /><span className="text-[8px]">Profile</span></button>
                 </div>
             </div>
 
             <style jsx>{`
-                @keyframes pulse {
-                    0%, 100% { transform: scale(1); }
-                    50% { transform: scale(1.1); }
-                }
-                .animate-pulse {
-                    animation: pulse 2s ease-in-out infinite;
-                }
+                @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+                .animate-pulse { animation: pulse 2s ease-in-out infinite; }
             `}</style>
         </nav>
     )
