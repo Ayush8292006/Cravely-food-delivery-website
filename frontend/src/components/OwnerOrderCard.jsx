@@ -24,16 +24,24 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
     const [assigningBoy, setAssigningBoy] = useState(null)
     const [fetchingBoys, setFetchingBoys] = useState(false)
 
-    const status = data.shopOrders?.status || 'pending'
-    const subtotal = data.shopOrders?.subtotal || 0
-    const orderItems = data.shopOrders?.shopOrderItems || []
-    const assignedBoy = data.shopOrders?.assignedDeliveryBoy
+    // ✅ FIX: data.shopOrders is an ARRAY
+    const shopOrder = data.shopOrders?.[0] || data.shopOrders || {}
+    const status = shopOrder?.status || 'pending'
+    const subtotal = shopOrder?.subtotal || 0
+    const orderItems = shopOrder?.shopOrderItems || []
+    const assignedBoy = shopOrder?.assignedDeliveryBoy
     const isPaymentSuccessful = data?.payment === true || data?.payment === "true"
-    const shopId = data.shopOrders?.shop?._id || data.shopOrders?.shop
+    
+    // ✅ FIXED: Get shopId from first shopOrder
+    const shopId = shopOrder?.shop?._id || 
+                   shopOrder?.shop || 
+                   data?.shopOrders?.[0]?.shop?._id || 
+                   data?.shopOrders?.[0]?.shop
 
     console.log("📦 Order Data:", data)
     console.log("🏪 Shop ID:", shopId)
     console.log("📊 Status:", status)
+    console.log("📦 Shop Order:", shopOrder)
 
     // ✅ Status Config
     const statusConfig = {
@@ -116,6 +124,13 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
     const handleUpdateStatus = async (newStatus) => {
         if (isUpdating) return
         
+        // ✅ Check if shopId exists
+        if (!shopId) {
+            toast.error('❌ Shop ID not found! Please refresh and try again.')
+            console.error('❌ Shop ID is undefined for order:', data._id)
+            return
+        }
+        
         console.log(`🔄 Updating status to: ${newStatus}`)
         console.log(`📦 Order ID: ${data._id}`)
         console.log(`🏪 Shop ID: ${shopId}`)
@@ -164,6 +179,12 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
     const handleAssignDeliveryBoy = async (boyId) => {
         if (!boyId) {
             toast.error('Please select a delivery boy')
+            return
+        }
+
+        // ✅ Check if shopId exists
+        if (!shopId) {
+            toast.error('❌ Shop ID not found!')
             return
         }
 
