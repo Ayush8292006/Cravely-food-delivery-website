@@ -1,8 +1,17 @@
 import mongoose from "mongoose"
 import bcrypt from "bcryptjs"
 import dotenv from "dotenv"
-// ✅ FIX: Correct path to .env (backend folder se)
-dotenv.config({ path: '../.env' })  // ✅ Seeds folder se backend .env tak
+import path from "path"
+import { fileURLToPath } from 'url'
+
+// ✅ FIXED: Sahi path se .env load karo
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+dotenv.config({ path: path.join(__dirname, '..', '.env') })
+
+// ✅ Debug: Check if .env loaded
+console.log("🔍 MONGODB_URL:", process.env.MONGODB_URL)
+
 import User from "../models/user.model.js"
 import connectDb from "../config/db.js"
 
@@ -12,8 +21,6 @@ const seedSuperAdmin = async () => {
         await connectDb()
         console.log("✅ Database connected!")
         
-        // ✅ Check if super admin already exists
-        console.log("🔍 Checking for existing Super Admin...")
         const existingAdmin = await User.findOne({ 
             email: "contact.cravely@gmail.com" 
         })
@@ -24,7 +31,6 @@ const seedSuperAdmin = async () => {
             process.exit()
         }
 
-        // ✅ Create super admin
         console.log("🔑 Creating Super Admin...")
         const hashedPassword = await bcrypt.hash("Cravely@admin", 10)
         

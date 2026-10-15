@@ -6,9 +6,9 @@ const itemSchema = new mongoose.Schema({
         required: true
     },
     image: {
-        type: String,
-        required: true
-    },
+    type: String,
+    default: null // ⭐ Ab bina image ke bhi item add ho sakta hai
+},
     shop: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Shop"

@@ -1,13 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'  // ✅ Added useEffect
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { serverUrl } from '../App'
+// ✅ FIXED: Correct import
+import { serverUrl } from '../../config'
 import { toast } from 'react-toastify'
 import { ClipLoader } from 'react-spinners'
 import { 
     FaHamburger, FaMotorcycle, FaArrowLeft, FaArrowRight,
     FaEnvelope, FaKey, FaShieldAlt, FaCheckCircle,
-    FaLock, FaMailBulk, FaRocket, FaStar, FaBolt
+    FaLock, FaMailBulk, FaRocket, FaStar, FaBolt,
+    FaSync
 } from "react-icons/fa"
 import { MdMail, MdVerified } from "react-icons/md"
 import { useDispatch } from 'react-redux'
@@ -23,10 +25,32 @@ function LoginOtp() {
     const [loading, setLoading] = useState(false)
     const [err, setErr] = useState('')
     const [isVisible, setIsVisible] = useState(false)
+    const [timer, setTimer] = useState(0)
+    const [canResend, setCanResend] = useState(true)
 
-    useState(() => {
+    // ✅ FIXED: useEffect instead of useState
+    useEffect(() => {
         setTimeout(() => setIsVisible(true), 200)
     }, [])
+
+    // ✅ Auto-submit OTP when 6 digits are entered
+    useEffect(() => {
+        if (otp.length === 6 && step === 2) {
+            handleVerifyOtp()
+        }
+    }, [otp, step])
+
+    // ✅ Countdown timer for resend
+    useEffect(() => {
+        if (timer > 0) {
+            const interval = setInterval(() => {
+                setTimer(prev => prev - 1)
+            }, 1000)
+            return () => clearInterval(interval)
+        } else {
+            setCanResend(true)
+        }
+    }, [timer])
 
     const handleSendOtp = async () => {
         if (!email) {
@@ -42,13 +66,21 @@ function LoginOtp() {
                 email
             }, { withCredentials: true })
             
-            toast.success(result.data.message)
+            toast.success(result.data.message, {
+                position: "top-center",
+                autoClose: 3000,
+            })
             setStep(2)
+            setTimer(60)  // ✅ Start 60 second timer
+            setCanResend(false)
             setLoading(false)
         } catch (error) {
             setErr(error.response?.data?.message || 'Failed to send OTP')
             setLoading(false)
-            toast.error(error.response?.data?.message || 'Failed to send OTP')
+            toast.error(error.response?.data?.message || 'Failed to send OTP', {
+                position: "top-center",
+                autoClose: 3000,
+            })
         }
     }
 
@@ -68,14 +100,55 @@ function LoginOtp() {
             }, { withCredentials: true })
             
             dispatch(setUserData(result.data.user))
-            toast.success('Login successful! 🎉')
+            toast.success('Login successful! 🎉', {
+                position: "top-center",
+                autoClose: 2000,
+            })
             setLoading(false)
             navigate('/')
         } catch (error) {
-            setErr(error.response?.data?.message || 'Invalid OTP')
+            const errorMsg = error.response?.data?.message || 'Invalid OTP'
+            setErr(errorMsg)
             setLoading(false)
-            toast.error(error.response?.data?.message || 'Invalid OTP')
+            toast.error(errorMsg, {
+                position: "top-center",
+                autoClose: 3000,
+            })
         }
+    }
+
+    const handleResendOtp = async () => {
+        if (!canResend) return
+        setLoading(true)
+        setErr('')
+        setOtp('')
+        
+        try {
+            await axios.post(`${serverUrl}/api/auth/send-login-otp`, {
+                email
+            }, { withCredentials: true })
+            
+            toast.success('OTP resent successfully! 📧', {
+                position: "top-center",
+                autoClose: 3000,
+            })
+            setTimer(60)
+            setCanResend(false)
+            setLoading(false)
+        } catch (error) {
+            setErr(error.response?.data?.message || 'Failed to resend OTP')
+            setLoading(false)
+            toast.error(error.response?.data?.message || 'Failed to resend OTP', {
+                position: "top-center",
+                autoClose: 3000,
+            })
+        }
+    }
+
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        return `${mins}:${secs.toString().padStart(2, '0')}`
     }
 
     const fadeUp = `transition-all duration-700 ease-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`
@@ -83,7 +156,7 @@ function LoginOtp() {
     return (
         <div className='min-h-screen bg-[#0a0a0f] flex items-center justify-center px-4 relative overflow-hidden'>
             
-            {/* ✅ Animated Background Orbs */}
+            {/* Animated Background Orbs */}
             <div className='absolute inset-0 pointer-events-none'>
                 <div className='absolute -top-40 -left-40 w-[600px] h-[600px] bg-[#ff2d55]/6 rounded-full blur-3xl animate-float-3d' />
                 <div className='absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-[#ff6b35]/6 rounded-full blur-3xl animate-float-3d animation-delay-300' />
@@ -96,7 +169,7 @@ function LoginOtp() {
                 transition={{ duration: 0.6, type: "spring" }}
                 className={`glass-premium-ultra rounded-3xl p-8 max-w-md w-full border border-white/10 shadow-2xl shadow-[#ff2d55]/10 ${fadeUp}`}
             >
-                {/* ✅ Logo */}
+                {/* Logo */}
                 <div className='flex items-center gap-3 mb-6'>
                     <div className='w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff2d55] to-[#ff6b35] flex items-center justify-center shadow-lg shadow-[#ff2d55]/25'>
                         <FaMotorcycle className='text-white text-2xl' />
@@ -122,7 +195,7 @@ function LoginOtp() {
                         <div className="mb-4">
                             <label className="block text-white/50 text-xs font-medium mb-1.5 tracking-wider">EMAIL</label>
                             <div className="flex items-center glass-input rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-[#ff6b35]/50 transition-all duration-300">
-                                <MdMail className="text-white/30 mr-3 group-focus-within:text-[#ff6b35]" />
+                                <MdMail className="text-white/30 mr-3" />
                                 <input
                                     type="email"
                                     className="flex-1 bg-transparent focus:outline-none text-white placeholder:text-white/30 text-sm"
@@ -168,10 +241,11 @@ function LoginOtp() {
                                 <FaKey className="text-white/30 mr-3" />
                                 <input
                                     type="text"
+                                    inputMode="numeric"  // ✅ Added numeric input mode
                                     className="flex-1 bg-transparent focus:outline-none text-white placeholder:text-white/30 text-center text-2xl tracking-[0.3em] font-mono"
                                     placeholder="Enter 6-digit OTP"
                                     maxLength="6"
-                                    onChange={(e) => setOtp(e.target.value)}
+                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}  // ✅ Only numbers
                                     value={otp}
                                 />
                             </div>
@@ -193,7 +267,7 @@ function LoginOtp() {
                             whileTap={{ scale: 0.95 }}
                             className='w-full btn-neon py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-300'
                             onClick={handleVerifyOtp}
-                            disabled={loading}
+                            disabled={loading || otp.length !== 6}
                         >
                             {loading ? (
                                 <ClipLoader size={20} color='white' />
@@ -206,23 +280,48 @@ function LoginOtp() {
                             )}
                         </motion.button>
                         
-                        <button
-                            className='w-full mt-2 text-white/40 hover:text-white transition-all duration-300 text-xs flex items-center justify-center gap-1'
-                            onClick={() => { setStep(1); setOtp(''); setErr('') }}
-                        >
-                            <FaArrowLeft size={10} /> Back to email
-                        </button>
+                        {/* ✅ Resend OTP with Timer */}
+                        <div className='flex items-center justify-between mt-3'>
+                            <button
+                                className='text-white/40 hover:text-white transition-all duration-300 text-xs flex items-center gap-1'
+                                onClick={() => { setStep(1); setOtp(''); setErr('') }}
+                            >
+                                <FaArrowLeft size={10} /> Back
+                            </button>
+                            
+                            <button
+                                className={`text-xs flex items-center gap-1 transition-all duration-300 ${
+                                    canResend 
+                                        ? 'text-[#ff6b35] hover:text-[#ff7a45] hover:scale-105' 
+                                        : 'text-white/30 cursor-not-allowed'
+                                }`}
+                                onClick={handleResendOtp}
+                                disabled={!canResend || loading}
+                            >
+                                {!canResend ? (
+                                    <>
+                                        <FaSync size={10} className={loading ? 'animate-spin' : ''} />
+                                        Resend in {formatTime(timer)}
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaSync size={10} />
+                                        Resend OTP
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </>
                 )}
 
-                {/* ✅ Divider */}
+                {/* Divider */}
                 <div className='flex items-center gap-3 my-5'>
                     <div className='flex-1 h-px bg-white/10' />
                     <span className='text-white/20 text-[10px]'>or</span>
                     <div className='flex-1 h-px bg-white/10' />
                 </div>
 
-                {/* ✅ Footer */}
+                {/* Footer */}
                 <div className='text-center'>
                     <span className='text-white/30 text-xs'>Have a password? </span>
                     <span 
@@ -233,7 +332,7 @@ function LoginOtp() {
                     </span>
                 </div>
 
-                {/* ✅ Trust Badges */}
+                {/* Trust Badges */}
                 <div className='flex justify-center gap-4 mt-4 text-white/20 text-[10px]'>
                     <span className='flex items-center gap-1'>
                         <FaShieldAlt size={10} className='text-green-400' /> Secure
@@ -298,4 +397,3 @@ function LoginOtp() {
 }
 
 export default LoginOtp
-

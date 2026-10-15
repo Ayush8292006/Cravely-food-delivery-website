@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
-import { serverUrl } from '../App'
+// ✅ FIXED: Correct import path
+import { serverUrl } from '../../config'
 import { toast } from 'react-toastify'
 import { ClipLoader } from 'react-spinners'
 import { 
@@ -8,13 +9,26 @@ import {
     FaComment, FaInfoCircle, FaArrowRight,
     FaTrashAlt, FaFrown, FaMeh, FaSadCry,
     FaMotorcycle, FaShieldAlt, FaClock, FaHeart,
-    FaCheckCircle, FaRocket, FaGem, FaCrown
+    FaCheckCircle, FaRocket, FaGem, FaCrown,
+    FaSpinner
 } from 'react-icons/fa'
 import { MdCancel, MdWarning, MdOutlineCancel } from 'react-icons/md'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useSelector } from 'react-redux'
+
+// ✅ Fallback reasons if API fails
+const FALLBACK_REASONS = [
+    { value: 'changed_mind', label: 'I changed my mind', icon: '🤔' },
+    { value: 'long_delivery', label: 'Delivery time is too long', icon: '⏰' },
+    { value: 'found_cheaper', label: 'Found a cheaper option', icon: '💰' },
+    { value: 'ordered_wrong', label: 'I ordered the wrong item', icon: '😅' },
+    { value: 'payment_issue', label: 'Payment issue', icon: '💳' },
+    { value: 'other', label: 'Other reason', icon: '📝' }
+]
 
 function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
-    const [reasons, setReasons] = useState([])
+    const { socket } = useSelector(state => state.user)
+    const [reasons, setReasons] = useState(FALLBACK_REASONS)
     const [selectedReason, setSelectedReason] = useState('')
     const [note, setNote] = useState('')
     const [loading, setLoading] = useState(false)
@@ -22,12 +36,34 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
     const [isVisible, setIsVisible] = useState(false)
     const [step, setStep] = useState(1)
     const [isLoaded, setIsLoaded] = useState(false)
+    const [reasonsError, setReasonsError] = useState(null)
+    const [isRetrying, setIsRetrying] = useState(false)
+
+    // ✅ Validate order data
+    const validateOrderData = () => {
+        if (!orderId) return null
+        if (typeof orderId === 'object') {
+            return {
+                id: orderId._id || orderId.id || null,
+                paymentMethod: orderId.paymentMethod || null,
+                shopId: orderId.shopId || orderId.shop?._id || null
+            }
+        }
+        return { id: orderId, paymentMethod: null, shopId: null }
+    }
+
+    const orderData = validateOrderData()
 
     useEffect(() => {
         if (isOpen) {
             setIsVisible(true)
             setIsLoaded(true)
             fetchReasons()
+            // ✅ Reset state when modal opens
+            setSelectedReason('')
+            setNote('')
+            setStep(1)
+            setReasonsError(null)
         } else {
             setIsVisible(false)
         }
@@ -35,16 +71,32 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
 
     const fetchReasons = async () => {
         setLoading(true)
+        setReasonsError(null)
         try {
             const result = await axios.get(`${serverUrl}/api/order/cancellation-reasons`, {
                 withCredentials: true
             })
-            setReasons(result.data)
-            setLoading(false)
+            if (result.data && result.data.length > 0) {
+                setReasons(result.data)
+            } else {
+                // ✅ Use fallback if API returns empty
+                setReasons(FALLBACK_REASONS)
+            }
         } catch (error) {
-            toast.error('Failed to load reasons')
+            console.log('❌ Fetch reasons error:', error)
+            setReasonsError(error.response?.data?.message || 'Failed to load reasons')
+            // ✅ Use fallback reasons
+            setReasons(FALLBACK_REASONS)
+            toast.warning('Using default reasons')
+        } finally {
             setLoading(false)
         }
+    }
+
+    // ✅ Retry fetching reasons
+    const handleRetryReasons = () => {
+        setIsRetrying(true)
+        fetchReasons().finally(() => setIsRetrying(false))
     }
 
     const handleSubmit = async () => {
@@ -53,19 +105,46 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
             return
         }
 
+        if (note && note.length > 500) {
+            toast.error('Note should be less than 500 characters')
+            return
+        }
+
         setSubmitting(true)
         try {
-            const result = await axios.post(`${serverUrl}/api/order/cancel/${orderId}`, {
-                reason: selectedReason,
-                note: note
-            }, { withCredentials: true })
+            const result = await axios.post(
+                `${serverUrl}/api/order/cancel/${orderData.id}`,
+                {
+                    reason: selectedReason,
+                    note: note || ''
+                },
+                { withCredentials: true }
+            )
             
-            toast.success('Order cancelled successfully! 🗑️')
+            // ✅ Emit socket event for real-time update
+            if (socket && socket.connected) {
+                socket.emit('order-cancelled', {
+                    orderId: orderData.id,
+                    shopId: orderData.shopId,
+                    userId: result.data.order?.userId
+                })
+                console.log('📡 Order cancellation emitted via socket')
+            }
+            
+            toast.success('Order cancelled successfully! 🗑️', {
+                position: "top-center",
+                autoClose: 3000,
+            })
+            
             if (onCancelled) onCancelled(result.data.order)
             handleClose()
-            setSubmitting(false)
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to cancel order')
+            const errorMsg = error.response?.data?.message || 'Failed to cancel order'
+            toast.error(errorMsg, {
+                position: "top-center",
+                autoClose: 3000,
+            })
+        } finally {
             setSubmitting(false)
         }
     }
@@ -77,26 +156,16 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
         }, 300)
     }
 
-    // ✅ FIX: Safely get order ID
-    const getOrderId = () => {
-        if (!orderId) return null
-        if (typeof orderId === 'object') {
-            return orderId._id || orderId.id || null
+    // ✅ Handle ESC key
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape' && isOpen) {
+                handleClose()
+            }
         }
-        return orderId
-    }
-
-    // ✅ FIX: Safely get payment method
-    const getPaymentMethod = () => {
-        if (!orderId) return null
-        if (typeof orderId === 'object') {
-            return orderId.paymentMethod || null
-        }
-        return null
-    }
-
-    const id = getOrderId()
-    const paymentMethod = getPaymentMethod()
+        window.addEventListener('keydown', handleEsc)
+        return () => window.removeEventListener('keydown', handleEsc)
+    }, [isOpen])
 
     const fadeUp = `transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`
 
@@ -165,7 +234,7 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                             Cancel Order
                                         </h2>
                                         <p className='text-white/40 text-xs sm:text-sm'>
-                                            Order #{id ? id.slice(-8).toUpperCase() : 'N/A'}
+                                            Order #{orderData.id ? orderData.id.slice(-8).toUpperCase() : 'N/A'}
                                         </p>
                                     </div>
                                 </div>
@@ -183,6 +252,28 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                     </div>
                                 ) : (
                                     <>
+                                        {/* ✅ Error state for reasons */}
+                                        {reasonsError && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: -10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className='bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-4 flex items-center justify-between'
+                                            >
+                                                <p className='text-red-400 text-xs'>{reasonsError}</p>
+                                                <button
+                                                    onClick={handleRetryReasons}
+                                                    disabled={isRetrying}
+                                                    className='text-red-400 text-xs hover:text-red-300 transition flex items-center gap-1'
+                                                >
+                                                    {isRetrying ? (
+                                                        <FaSpinner className='animate-spin' size={12} />
+                                                    ) : (
+                                                        'Retry'
+                                                    )}
+                                                </button>
+                                            </motion.div>
+                                        )}
+
                                         {/* Step Indicator */}
                                         <div className='flex items-center gap-2 mb-4 sm:mb-6'>
                                             <div className={`flex-1 h-1 rounded-full transition-all duration-500 ${
@@ -228,7 +319,7 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                                 Order will be cancelled
                                                             </p>
                                                             <p className='text-yellow-400/60 text-[10px] sm:text-xs mt-0.5 sm:mt-1'>
-                                                                {paymentMethod === 'online' 
+                                                                {orderData.paymentMethod === 'online' 
                                                                     ? '💳 Refund will be processed within 5-7 business days'
                                                                     : '💰 No refund applicable for COD orders'
                                                                 }
@@ -238,20 +329,24 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                 </div>
 
                                                 <div className='flex flex-col gap-2'>
-                                                    <button
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.02 }}
+                                                        whileTap={{ scale: 0.98 }}
                                                         onClick={() => setStep(2)}
                                                         className='w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold hover:scale-[1.02] transition-all duration-300 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 text-sm sm:text-base'
                                                     >
                                                         Continue
                                                         <FaArrowRight size={12} className="sm:text-sm" />
-                                                    </button>
+                                                    </motion.button>
 
-                                                    <button
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.02 }}
+                                                        whileTap={{ scale: 0.98 }}
                                                         onClick={handleClose}
                                                         className='w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl border border-white/10 text-white/40 font-medium hover:bg-white/5 hover:text-white/60 transition-all duration-300 text-sm sm:text-base'
                                                     >
                                                         Keep My Order
-                                                    </button>
+                                                    </motion.button>
                                                 </div>
                                             </motion.div>
                                         )}
@@ -274,8 +369,9 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                 <div>
                                                     <label className='block text-white/40 text-[10px] sm:text-xs font-medium uppercase tracking-wider mb-1.5 sm:mb-2'>
                                                         Why are you cancelling?
+                                                        <span className='text-red-400'>*</span>
                                                     </label>
-                                                    <div className='space-y-1.5 sm:space-y-2'>
+                                                    <div className='space-y-1.5 sm:space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar'>
                                                         {reasons.map((reason) => (
                                                             <motion.div
                                                                 key={reason.value}
@@ -313,19 +409,31 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                     <div className='relative'>
                                                         <textarea
                                                             className='w-full bg-white/5 border border-white/10 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-white text-xs sm:text-sm focus:outline-none focus:border-red-500/50 transition-all duration-300 min-h-[60px] sm:min-h-[70px] resize-none placeholder:text-white/20'
-                                                            placeholder='Tell us more...'
+                                                            placeholder='Tell us more... (max 500 characters)'
                                                             value={note}
-                                                            onChange={(e) => setNote(e.target.value)}
+                                                            onChange={(e) => {
+                                                                if (e.target.value.length <= 500) {
+                                                                    setNote(e.target.value)
+                                                                }
+                                                            }}
+                                                            maxLength={500}
                                                         />
-                                                        <FaComment className='absolute bottom-2 right-2 sm:bottom-3 sm:right-3 text-white/10 text-xs sm:text-sm' />
+                                                        <div className='flex items-center justify-between mt-1'>
+                                                            <FaComment className='text-white/10 text-xs sm:text-sm' />
+                                                            <span className={`text-[8px] sm:text-[10px] ${note.length > 450 ? 'text-yellow-400' : 'text-white/20'}`}>
+                                                                {note.length}/500
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
 
                                                 <div className='flex gap-2 sm:gap-3'>
-                                                    <button
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.02 }}
+                                                        whileTap={{ scale: 0.98 }}
                                                         className='flex-1 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold hover:scale-[1.02] transition-all duration-300 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 disabled:opacity-50 text-xs sm:text-sm'
                                                         onClick={handleSubmit}
-                                                        disabled={submitting}
+                                                        disabled={submitting || !selectedReason}
                                                     >
                                                         {submitting ? (
                                                             <ClipLoader size={16} className="sm:w-5 sm:h-5" color='white' />
@@ -335,13 +443,15 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                                 Cancel Order
                                                             </>
                                                         )}
-                                                    </button>
-                                                    <button
+                                                    </motion.button>
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.02 }}
+                                                        whileTap={{ scale: 0.98 }}
                                                         className='px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl border border-white/10 text-white/40 font-medium hover:bg-white/5 hover:text-white/60 transition-all duration-300 text-xs sm:text-sm'
                                                         onClick={handleClose}
                                                     >
                                                         Close
-                                                    </button>
+                                                    </motion.button>
                                                 </div>
                                             </motion.div>
                                         )}

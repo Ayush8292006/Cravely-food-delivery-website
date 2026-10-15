@@ -15,25 +15,25 @@ function AnimatedButton({
 }) {
     const variants = {
         primary: {
-            bg: 'bg-gradient-to-r from-[#ff2d55] to-[#ff6b35]',
-            hoverBg: 'hover:shadow-[#ff2d55]/40',
+            bg: 'bg-gradient-to-r from-[#e85d04] to-[#f48c06]',
+            hoverBg: 'hover:shadow-[#e85d04]/40',
             text: 'text-white',
             border: 'border-transparent',
-            glow: 'shadow-lg shadow-[#ff2d55]/25 hover:shadow-[#ff2d55]/40'
+            glow: 'shadow-lg shadow-[#e85d04]/25 hover:shadow-[#e85d04]/40'
         },
         secondary: {
-            bg: 'bg-white/5',
-            hoverBg: 'hover:bg-white/10',
-            text: 'text-white/70 hover:text-white',
-            border: 'border-white/10 hover:border-[#ff2d55]/30',
-            glow: 'hover:shadow-lg hover:shadow-[#ff2d55]/5'
+            bg: 'bg-gray-100',
+            hoverBg: 'hover:bg-gray-200',
+            text: 'text-gray-700 hover:text-gray-900',
+            border: 'border-gray-200 hover:border-gray-300',
+            glow: 'hover:shadow-lg hover:shadow-gray-200/50'
         },
         outline: {
             bg: 'bg-transparent',
-            hoverBg: 'hover:bg-[#ff2d55]/10',
-            text: 'text-[#ff6b35]',
-            border: 'border-[#ff2d55]/30 hover:border-[#ff2d55]/50',
-            glow: 'hover:shadow-lg hover:shadow-[#ff2d55]/10'
+            hoverBg: 'hover:bg-gray-50',
+            text: 'text-gray-700',
+            border: 'border-gray-300 hover:border-[#e85d04]/50',
+            glow: 'hover:shadow-lg hover:shadow-[#e85d04]/10'
         },
         success: {
             bg: 'bg-gradient-to-r from-green-500 to-emerald-500',
@@ -51,10 +51,26 @@ function AnimatedButton({
         },
         ghost: {
             bg: 'bg-transparent',
-            hoverBg: 'hover:bg-white/5',
-            text: 'text-white/40 hover:text-white',
+            hoverBg: 'hover:bg-gray-50',
+            text: 'text-gray-400 hover:text-gray-600',
             border: 'border-transparent',
             glow: ''
+        },
+        // ✅ New white variant for clean design
+        white: {
+            bg: 'bg-white',
+            hoverBg: 'hover:bg-gray-50',
+            text: 'text-gray-700',
+            border: 'border-gray-200 hover:border-[#e85d04]/30',
+            glow: 'shadow-md shadow-gray-100/50 hover:shadow-lg hover:shadow-[#e85d04]/10'
+        },
+        // ✅ New soft variant for subtle actions
+        soft: {
+            bg: 'bg-[#fef3e8]',
+            hoverBg: 'hover:bg-[#fde8d4]',
+            text: 'text-[#e85d04]',
+            border: 'border-[#fde8d4] hover:border-[#e85d04]/30',
+            glow: 'hover:shadow-lg hover:shadow-[#e85d04]/10'
         }
     }
 
@@ -74,7 +90,7 @@ function AnimatedButton({
             whileHover={{ scale: disabled ? 1 : 1.03 }}
             whileTap={{ scale: disabled ? 1 : 0.95 }}
             className={`
-                relative overflow-hidden rounded-xl font-medium transition-all duration-300
+                relative overflow-hidden rounded-xl font-medium transition-all duration-300 border
                 ${variantStyles.bg}
                 ${variantStyles.text}
                 ${variantStyles.border}
@@ -87,8 +103,8 @@ function AnimatedButton({
             onClick={onClick}
             disabled={disabled}
         >
-            {/* ✅ Shimmer Effect */}
-            {!disabled && variant !== 'ghost' && variant !== 'secondary' && (
+            {/* ✅ Shimmer Effect - Only for primary/success/danger */}
+            {!disabled && (variant === 'primary' || variant === 'success' || variant === 'danger') && (
                 <motion.div 
                     className="absolute inset-0 -translate-x-full"
                     animate={{ x: ['-100%', '100%'] }}

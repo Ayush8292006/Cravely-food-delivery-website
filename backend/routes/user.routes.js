@@ -1,41 +1,35 @@
 import express from "express"
 import isAuth from "../middlewares/isAuth.js"
 import { upload } from "../middlewares/multer.js"
-
-// ✅ Import ALL functions from user.controllers
 import * as UserController from "../controllers/user.controllers.js"
 
 const userRouter = express.Router()
 
-// ============================================
-// USER ROUTES
-// ============================================
+// ✅ Public routes
+userRouter.post("/register", UserController.register)
+userRouter.post("/login", UserController.login)
 
-// ✅ Current User
+// ✅ Protected routes
 userRouter.get("/current", isAuth, UserController.getCurrentUser)
-
-// ✅ Location
 userRouter.post("/update-location", isAuth, UserController.updateUserLocation)
-
-// ✅ Profile
-userRouter.get("/profile", isAuth, UserController.getProfile)
+userRouter.post("/set-password", isAuth, UserController.setPassword)
 userRouter.put("/profile", isAuth, UserController.updateProfile)
-userRouter.post("/change-password", isAuth, UserController.changePassword)
-userRouter.post("/upload-photo", isAuth, upload.single("image"), UserController.uploadProfilePhoto)
+userRouter.get("/orders", isAuth, UserController.getUserOrders)
+userRouter.get("/profile", isAuth, UserController.getProfile)
 
-// ✅ Addresses
-userRouter.post("/address", isAuth, UserController.addAddress)
-userRouter.get("/addresses", isAuth, UserController.getAddresses)
-userRouter.put("/address/:addressId/default", isAuth, UserController.setDefaultAddress)
-userRouter.delete("/address/:addressId", isAuth, UserController.deleteAddress)
+// ✅ Delivery Boy routes
+userRouter.get('/delivery-boy/:id', isAuth, UserController.getDeliveryBoyStats)
+userRouter.get('/delivery-boys/nearby', isAuth, UserController.getNearbyDeliveryBoys)  // ✅ ADD THIS
 
-// ✅ Wishlist
-userRouter.post("/wishlist/toggle", isAuth, UserController.toggleWishlist)
-userRouter.get("/wishlist", isAuth, UserController.getWishlist)
+// ✅ Upload avatar
+userRouter.post(
+    "/upload-avatar",
+    isAuth,
+    upload.single('avatar'),
+    UserController.uploadAvatar
+)
 
-// ✅ Delivery Boys - NEW ROUTES
-userRouter.get("/delivery-boys/nearby", isAuth, UserController.getNearbyDeliveryBoys)
-userRouter.put("/delivery-boy/status", isAuth, UserController.updateDeliveryBoyStatus)
-userRouter.get("/delivery-boy/:deliveryBoyId", isAuth, UserController.getDeliveryBoyDetails)
+// ✅ User by ID (keep at the end)
+userRouter.get("/:id", isAuth, UserController.getUserById)
 
 export default userRouter

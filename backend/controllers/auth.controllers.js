@@ -6,46 +6,37 @@ import crypto from 'crypto'
 
 export const signUp = async (req, res) => {
     try {
-        // ✅ Destructure correctly
         const { fullName, email, password, mobile, role } = req.body
 
-        // ✅ Debug - Check if password is received
         console.log("📝 Signup Request:", { fullName, email, password: password ? "Received" : "Missing", mobile, role })
 
-        // ✅ Validate required fields
         if (!fullName || !email || !password || !mobile || !role) {
             return res.status(400).json({ 
                 message: "All fields are required: fullName, email, password, mobile, role" 
             })
         }
 
-        // ✅ Check if user exists
         let user = await User.findOne({ email })
         if (user) {
             return res.status(400).json({ message: "User Already exists" })
         }
 
-        // ✅ Validate password length
         if (password.length < 6) {
             return res.status(400).json({ 
                 message: "Password must have at least 6 characters" 
             })
         }
 
-        // ✅ Validate mobile
         if (mobile.length < 10) {
             return res.status(400).json({ 
                 message: "Mobile number must have at least 10 digits" 
             })
         }
 
-        // ✅ Hash password
         const hashedPassword = await bcrypt.hash(password, 10)
         
-        // ✅ Generate verification token
         const verificationToken = crypto.randomBytes(32).toString('hex')
         
-        // ✅ Create user
         user = await User.create({
             fullName,
             email,
@@ -59,7 +50,6 @@ export const signUp = async (req, res) => {
 
         console.log("✅ User created:", user.email)
 
-        // ✅ Send verification email
         try {
             await sendEmailVerificationMail(email, verificationToken)
             console.log("✅ Verification email sent to:", email)
@@ -106,7 +96,6 @@ export const sendLoginOtp = async (req, res) => {
 
         console.log("🔑 Login OTP for", email, ":", otp)
 
-        // ✅ Send email
         const emailResult = await sendLoginOtpMail(email, otp)
         
         if (emailResult) {
@@ -115,11 +104,10 @@ export const sendLoginOtp = async (req, res) => {
             console.log("⚠️ Email sending failed, but OTP is saved in DB")
         }
 
+        // ✅ FIXED: OTP sirf console me log karo, response me nahi
         return res.status(200).json({
             message: "OTP sent to your email",
-            email: email,
-            // ⚠️ Remove in production
-            debug: process.env.NODE_ENV === 'development' ? { otp } : undefined
+            email: email
         })
     } catch (error) {
         console.log("❌ Send login OTP error:", error.message)
@@ -138,7 +126,6 @@ export const verifyLoginOtp = async (req, res) => {
             return res.status(400).json({ message: "Email and OTP are required" })
         }
 
-        // ✅ Find user with valid OTP
         const user = await User.findOne({
             email,
             loginOtp: otp,
@@ -149,12 +136,10 @@ export const verifyLoginOtp = async (req, res) => {
             return res.status(400).json({ message: "Invalid or expired OTP" })
         }
 
-        // ✅ Clear OTP fields
         user.loginOtp = undefined
         user.loginOtpExpires = undefined
         await user.save()
 
-        // ✅ Generate JWT token
         const token = await genToken(user._id)
         res.cookie("token", token, {
             secure: process.env.NODE_ENV === 'production',
@@ -205,7 +190,6 @@ export const verifyEmail = async (req, res) => {
     }
 }
 
-// ✅ NEW: Resend Verification Email
 export const resendVerificationEmail = async (req, res) => {
     try {
         const { email } = req.body
@@ -257,11 +241,10 @@ export const signIn = async (req, res) => {
 
         const token = await genToken(user._id)
         
-        // ✅ FIXED: Use sameSite: "none" for cross-origin
         res.cookie("token", token, {
-            secure: true,  // ✅ Must be true for HTTPS
-            sameSite: "none",  // ✅ Required for cross-origin (Vercel → Render)
-            maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
+            secure: true,
+            sameSite: "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
             httpOnly: true,
             path: '/'
         })
@@ -283,9 +266,15 @@ export const signIn = async (req, res) => {
     }
 }
 
+// ✅ FIXED: SignOut with proper clearCookie options
 export const signOut = async (req, res) => {
     try {
-        res.clearCookie("token")
+        res.clearCookie("token", {
+            secure: true,
+            sameSite: "none",
+            path: '/',
+            httpOnly: true
+        })
         return res.status(200).json({ message: "Logged out Successfully" })
     } catch (error) {
         return res.status(500).json({ message: `sign Out error ${error.message}` })
@@ -378,14 +367,12 @@ export const googleAuth = async (req, res) => {
             console.log("✅ Existing user found:", user.email)
         }
 
-        // ✅ GENERATE TOKEN
         const token = await genToken(user._id)
         
         if (!token) {
             return res.status(500).json({ message: "Failed to generate token" })
         }
 
-        // ✅ SET COOKIE WITH PROPER OPTIONS
         res.cookie("token", token, {
             secure: true,
             sameSite: "none",
@@ -395,9 +382,7 @@ export const googleAuth = async (req, res) => {
         })
 
         console.log("✅ Token set for Google user:", user.email)
-        console.log("✅ Token:", token.substring(0, 20) + "...")
 
-        // ✅ Return user data (without password)
         const userData = {
             _id: user._id,
             fullName: user.fullName,

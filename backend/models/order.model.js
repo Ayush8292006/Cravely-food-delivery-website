@@ -60,6 +60,14 @@ const orderSchema = new mongoose.Schema({
         enum: ['cod', "online"],
         required: true
     },
+     mobile: {
+        type: String,
+        required: false  // or true
+    },
+    customerName: {
+        type: String,
+        default: 'Customer'
+    },
     deliveryAddress: {
         text: String,
         latitude: Number,
@@ -68,7 +76,6 @@ const orderSchema = new mongoose.Schema({
     totalAmount: {
         type: Number,
     },
-    // ✅ ADD DELIVERY FEE FIELD
     deliveryFee: {
         type: Number,
         default: 0
@@ -78,7 +85,6 @@ const orderSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    // ✅ Razorpay fields
     razorpayOrderId: {
         type: String,
         default: ""
@@ -87,7 +93,6 @@ const orderSchema = new mongoose.Schema({
         type: String,
         default: ""
     },
-    // ✅ Cancellation fields
     isCancelled: {
         type: Boolean,
         default: false
@@ -113,5 +118,11 @@ const orderSchema = new mongoose.Schema({
     }
 }, { timestamps: true })
 
+// ✅ Database Indexes
+orderSchema.index({ user: 1, createdAt: -1 })
+orderSchema.index({ 'shopOrders.status': 1 })
+orderSchema.index({ createdAt: -1 })
+orderSchema.index({ 'shopOrders.assignedDeliveryBoy': 1 })
+
 const Order = mongoose.model("Order", orderSchema)
-export default Order
+export default Order  // ✅ YEH LINE HONA CHAHIYE

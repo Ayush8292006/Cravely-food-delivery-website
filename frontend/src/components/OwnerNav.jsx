@@ -1,32 +1,105 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import axios from 'axios'
-import { serverUrl } from '../App'
+import { serverUrl } from '../../config';
 import { setUserData } from '../redux/userSlice'
-import { clearSessionUser } from '../utils/auth'  // ✅ TOP PAR LAAO
 import { 
     FaHamburger, FaStore, FaUtensils, FaShoppingBag, 
     FaUserCircle, FaSignOutAlt, FaCrown, FaHome,
-    FaBell, FaChartLine, FaTruck, FaPlus
+    FaChartLine, FaTruck, FaPlus,
+    FaArrowLeft, FaSearch, FaTimes, FaChevronDown, FaChevronUp
 } from 'react-icons/fa'
-import { MdRestaurant, MdDeliveryDining } from 'react-icons/md'
+import { MdRestaurant, MdDeliveryDining, MdVerified } from 'react-icons/md'
+import { BiRestaurant } from "react-icons/bi";
+import { IoReceiptOutline, IoLogOut } from "react-icons/io5";
+import { FiShoppingCart } from "react-icons/fi";
+import { GiKnifeFork } from "react-icons/gi";
 import { toast } from 'react-toastify'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
+import LocationSelector from './LocationSelector';
 
 function OwnerNav() {
     const navigate = useNavigate()
     const dispatch = useDispatch()
-    const { userData } = useSelector(state => state.user)
-    const { myShopData } = useSelector(state => state.owner)
+    const { userData, shopsInMyCity, currentCity } = useSelector(state => state.user)
+    const [shopData, setShopData] = useState(null)
+    const [notifications, setNotifications] = useState(0)
     const [showDropdown, setShowDropdown] = useState(false)
-    const [notifications] = useState(3)
+    const [showRestaurants, setShowRestaurants] = useState(false)
+    const [showSearch, setShowSearch] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [scrolled, setScrolled] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const dropdownRef = React.useRef(null)
+    const restaurantRef = React.useRef(null)
+
+    useEffect(() => {
+        const handleScroll = () => setScrolled(window.scrollY > 30)
+        window.addEventListener('scroll', handleScroll)
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setShowDropdown(false)
+            if (restaurantRef.current && !restaurantRef.current.contains(e.target)) setShowRestaurants(false)
+        }
+        document.addEventListener('click', handleClickOutside)
+        return () => document.removeEventListener('click', handleClickOutside)
+    }, [])
+
+    useEffect(() => {
+        const fetchShop = async () => {
+            if (!userData?._id) {
+                setLoading(false)
+                return
+            }
+
+            try {
+                const response = await axios.get(
+                    `${serverUrl}/api/shop/my-shop`,
+                    { withCredentials: true }
+                )
+                if (response.data.shop) {
+                    setShopData(response.data.shop)
+                }
+            } catch (error) {
+                console.log('❌ No shop found for owner')
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchShop()
+    }, [userData?._id])
+
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            if (!userData?._id) return
+
+            try {
+                const response = await axios.get(
+                    `${serverUrl}/api/order/pending-count`,
+                    { withCredentials: true }
+                )
+                setNotifications(response.data.count || 0)
+            } catch (error) {
+                console.log('❌ Error fetching notifications:', error)
+            }
+        }
+
+        fetchNotifications()
+        
+        const interval = setInterval(fetchNotifications, 30000)
+        return () => clearInterval(interval)
+    }, [userData?._id])
 
     const handleLogout = async () => {
         try {
             await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
-            clearSessionUser()
             localStorage.removeItem('userData')
+            sessionStorage.removeItem('userData')
             dispatch(setUserData(null))
             toast.success('Logged out successfully! 👋')
             navigate('/signin')
@@ -35,161 +108,221 @@ function OwnerNav() {
         }
     }
 
+    const handleSearch = (e) => {
+        e.preventDefault()
+        if (searchQuery.trim()) {
+            navigate(`/search?q=${encodeURIComponent(searchQuery)}`)
+            setShowSearch(false)
+            setSearchQuery('')
+        }
+    }
+
+    const getRoleBadge = () => {
+        switch(userData?.role) {
+            case 'owner': return { label: 'Owner', color: 'bg-orange-100 text-orange-700' }
+            case 'deliveryBoy': return { label: 'Delivery', color: 'bg-blue-100 text-blue-700' }
+            case 'superAdmin': return { label: 'Admin', color: 'bg-purple-100 text-purple-700' }
+            default: return { label: 'User', color: 'bg-gray-100 text-gray-600' }
+        }
+    }
+
+    const roleBadge = getRoleBadge()
+
     return (
-        <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/95 backdrop-blur-2xl border-b border-white/5 shadow-2xl shadow-black/50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-[70px]">
-                    
-                    {/* Logo */}
-                    <div 
-                        className="flex items-center gap-3 cursor-pointer group"
-                        onClick={() => navigate('/owner-dashboard')}
-                    >
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff2d55] to-[#ff6b35] flex items-center justify-center shadow-lg shadow-[#ff2d55]/25 group-hover:scale-110 transition-all duration-300">
-                            <FaHamburger className="text-white text-xl" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-white tracking-tight">
-                                Cravely
-                            </h1>
-                            <p className="text-[9px] text-white/30 uppercase tracking-[0.15em]">
-                                🍽️ Owner Panel
-                            </p>
-                        </div>
+        <nav className={`w-full h-[64px] flex items-center justify-between px-4 sm:px-6 lg:px-10 fixed top-0 z-[9999] transition-all duration-300 ${
+            scrolled 
+                ? 'bg-[#e85d04] shadow-md' 
+                : 'bg-[#e85d04]'
+        }`}>
+
+            {/* Logo */}
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate("/owner-dashboard")}>
+                <div className='w-9 h-9 rounded-xl bg-white flex items-center justify-center'>
+                    <FaHamburger className="text-[#e85d04] text-lg" />
+                </div>
+                <div className='hidden sm:block'>
+                    <h1 className='text-lg font-bold text-white leading-none tracking-tight'>Cravely</h1>
+                    <p className='text-[8px] text-white/50 uppercase tracking-[0.15em]'>Owner Panel</p>
+                </div>
+            </div>
+
+            {/* Center - Quick Stats */}
+            <div className='hidden md:flex items-center gap-3'>
+                <div className='flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15'>
+                    <FaStore className="text-white text-xs" />
+                    <span className="text-white/80 text-xs font-medium">
+                        {shopData?.name || (loading ? 'Loading...' : 'No Shop')}
+                    </span>
+                </div>
+                <div className='flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15'>
+                    <FaUtensils className="text-white text-xs" />
+                    <span className="text-white/80 text-xs font-medium">
+                        {shopData?.items?.length || 0} Items
+                    </span>
+                </div>
+                {shopData?.isApproved ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                        <span className="text-green-300 text-[10px] font-medium">Approved</span>
                     </div>
-
-                    {/* Center - Quick Stats */}
-                    <div className="hidden md:flex items-center gap-4">
-                        <div className="flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
-                            <FaStore className="text-[#ff6b35] text-sm" />
-                            <span className="text-white/60 text-xs">{myShopData?.name || 'No Shop'}</span>
-                        </div>
-                        <div className="flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
-                            <FaUtensils className="text-[#ff6b35] text-sm" />
-                            <span className="text-white/60 text-xs">{myShopData?.items?.length || 0} Items</span>
-                        </div>
+                ) : shopData && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="text-amber-300 text-[10px] font-medium">Pending</span>
                     </div>
+                )}
+            </div>
 
-                    {/* Right Actions */}
-                    <div className="flex items-center gap-2 sm:gap-3">
-                        
-                        {myShopData?.isApproved && (
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white text-xs font-medium shadow-lg shadow-[#ff2d55]/20 hover:shadow-[#ff2d55]/40 transition-all duration-300"
-                                onClick={() => navigate('/add-item')}
-                            >
-                                <FaPlus size={12} /> Add Item
-                            </motion.button>
-                        )}
+            {/* Right */}
+            <div className='flex items-center gap-1.5 sm:gap-2'>
+                <button 
+                    className='lg:hidden text-white/90 hover:text-white p-2 rounded-lg hover:bg-white/10'
+                    onClick={() => setShowSearch(!showSearch)}
+                >
+                    <FaSearch size={15} />
+                </button>
 
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="text-white/50 hover:text-white p-2 rounded-full hover:bg-white/5 transition-all duration-300"
-                            onClick={() => navigate('/owner-orders')}
+                <AnimatePresence>
+                    {showSearch && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            className='absolute top-[64px] left-0 right-0 px-4 py-3 bg-white border-b border-gray-200 shadow-sm z-50'
                         >
-                            <FaShoppingBag size={18} />
-                        </motion.button>
+                            <form onSubmit={handleSearch} className='flex items-center gap-2 max-w-lg mx-auto'>
+                                <input
+                                    type="text"
+                                    placeholder='Search restaurants or items...'
+                                    className='flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#e85d04] text-sm'
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    autoFocus
+                                />
+                                <button type="submit" className='px-3 py-2.5 rounded-lg bg-[#e85d04] text-white'>
+                                    <FaSearch size={14} />
+                                </button>
+                                <button className='p-2.5 rounded-lg text-gray-400' onClick={() => setShowSearch(false)}>
+                                    <FaTimes size={14} />
+                                </button>
+                            </form>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-                        <div className="relative">
-                            <button className="text-white/50 hover:text-white p-2 rounded-full hover:bg-white/5 transition-all duration-300">
-                                <FaBell size={18} />
-                                {notifications > 0 && (
-                                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#ff2d55] rounded-full text-[8px] text-white flex items-center justify-center animate-pulse">
-                                        {notifications}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
+                <button 
+                    className='lg:hidden text-white/90 p-2 rounded-lg hover:bg-white/10'
+                    onClick={() => navigate('/restaurants')}
+                >
+                    <BiRestaurant size={17} />
+                </button>
 
-                        {/* Profile Dropdown */}
-                        <div className="relative">
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="w-9 h-9 rounded-full bg-gradient-to-br from-[#ff2d55] to-[#ff6b35] flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-[#ff2d55]/20 hover:shadow-[#ff2d55]/40 transition-all duration-300"
-                                onClick={() => setShowDropdown(!showDropdown)}
-                            >
-                                {userData?.fullName?.charAt(0) || 'O'}
-                            </motion.button>
+                {shopData?.isApproved && (
+                    <button 
+                        className='hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium hover:bg-white/30 transition-colors'
+                        onClick={() => navigate("/add-item")}
+                    >
+                        <FaPlus size={11} />
+                        <span className='hidden lg:inline'>Add Item</span>
+                    </button>
+                )}
 
-                            {showDropdown && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                    className="absolute right-0 mt-2 w-56 bg-[#1a1a2e]/98 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl shadow-black/60 overflow-hidden z-50"
-                                >
-                                    <div className="p-4 border-b border-white/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#ff2d55] to-[#ff6b35] flex items-center justify-center text-white font-bold text-sm">
-                                                {userData?.fullName?.charAt(0) || 'O'}
-                                            </div>
-                                            <div>
-                                                <p className="text-white font-semibold text-sm">{userData?.fullName}</p>
-                                                <p className="text-white/30 text-[10px]">{userData?.email}</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                <button 
+                    className='hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/90 text-xs font-medium hover:bg-white/15 transition-colors'
+                    onClick={() => navigate("/owner-orders")}
+                >
+                    <IoReceiptOutline size={15} />
+                    <span className='hidden lg:inline'>Orders</span>
+                    {notifications > 0 && (
+                        <span className='w-4 h-4 bg-red-500 rounded-full text-[8px] text-white flex items-center justify-center ml-1'>
+                            {notifications}
+                        </span>
+                    )}
+                </button>
 
-                                    <div className="p-2 space-y-1">
-                                        <button
-                                            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-200 text-sm"
-                                            onClick={() => { navigate('/owner-dashboard'); setShowDropdown(false) }}
-                                        >
-                                            <FaHome size={14} /> Dashboard
-                                        </button>
-                                        <button
-                                            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-200 text-sm"
-                                            onClick={() => { navigate('/profile'); setShowDropdown(false) }}
-                                        >
-                                            <FaUserCircle size={14} /> Profile
-                                        </button>
-                                        {myShopData && (
-                                            <button
-                                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-200 text-sm"
-                                                onClick={() => { navigate('/create-edit-shop'); setShowDropdown(false) }}
-                                            >
-                                                <FaStore size={14} /> Edit Shop
-                                            </button>
-                                        )}
-                                        <button
-                                            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-200 text-sm"
-                                            onClick={() => { navigate('/owner-orders'); setShowDropdown(false) }}
-                                        >
-                                            <FaShoppingBag size={14} /> My Orders
-                                        </button>
-                                        <div className="h-px bg-white/5 my-1" />
-                                        <button
-                                            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 text-sm"
-                                            onClick={handleLogout}
-                                        >
-                                            <FaSignOutAlt size={14} /> Logout
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </div>
+                {/* Profile Dropdown */}
+                <div className='relative' ref={dropdownRef}>
+                    <div 
+                        className='w-9 h-9 rounded-full flex items-center justify-center bg-white text-[#e85d04] text-sm font-semibold cursor-pointer' 
+                        onClick={() => setShowDropdown(!showDropdown)}
+                    >
+                        {userData?.profilePhoto ? (
+                            <img src={userData.profilePhoto} alt="profile" className='w-full h-full rounded-full object-cover' />
+                        ) : (
+                            userData?.fullName?.slice(0, 1) || 'O'
+                        )}
                     </div>
+
+                    <AnimatePresence>
+                        {showDropdown && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: -8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -8 }}
+                                className='absolute top-[48px] right-0 w-[240px] bg-white rounded-xl p-3.5 border border-gray-100 shadow-xl z-50'
+                            >
+                                <div className='flex items-center gap-3 pb-3 border-b border-gray-100'>
+                                    <div className='w-10 h-10 rounded-full bg-[#e85d04] flex items-center justify-center text-white font-semibold text-sm'>
+                                        {userData?.fullName?.slice(0, 1) || 'O'}
+                                    </div>
+                                    <div className='flex-1 min-w-0'>
+                                        <p className='text-sm font-semibold text-gray-800 truncate flex items-center gap-1'>
+                                            {userData?.fullName}
+                                            <MdVerified size={12} className="text-blue-500" />
+                                        </p>
+                                        <p className='text-[11px] text-gray-400 truncate'>{userData?.email}</p>
+                                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${roleBadge.color}`}>
+                                            {roleBadge.label}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className='py-1.5 space-y-0.5'>
+                                    <div 
+                                        className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
+                                        onClick={() => { navigate("/owner-dashboard"); setShowDropdown(false) }}
+                                    >
+                                        <FaHome size={13} /> Dashboard
+                                    </div>
+                                    <div 
+                                        className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
+                                        onClick={() => { navigate("/profile"); setShowDropdown(false) }}
+                                    >
+                                        <FaUserCircle size={13} /> Profile Settings
+                                    </div>
+                                    {shopData && (
+                                        <div 
+                                            className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
+                                            onClick={() => { navigate("/create-edit-shop"); setShowDropdown(false) }}
+                                        >
+                                            <FaStore size={13} /> Manage Shop
+                                        </div>
+                                    )}
+                                    <div 
+                                        className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
+                                        onClick={() => { navigate("/owner-orders"); setShowDropdown(false) }}
+                                    >
+                                        <IoReceiptOutline size={13} /> Order Management
+                                    </div>
+                                    <div 
+                                        className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
+                                        onClick={() => { navigate("/add-item"); setShowDropdown(false) }}
+                                    >
+                                        <FaPlus size={13} /> Add Item
+                                    </div>
+                                </div>
+
+                                <div 
+                                    className='flex items-center gap-2.5 text-red-500 hover:text-red-600 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-red-50 text-sm border-t border-gray-100 mt-1 pt-2'
+                                    onClick={handleLogout}
+                                >
+                                    <IoLogOut size={14} /> Logout
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
-
-            {/* Mobile Bottom Nav */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0a0a0f]/95 backdrop-blur-2xl border-t border-white/5 px-4 py-2">
-                <div className="flex items-center justify-around">
-                    <button className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition" onClick={() => navigate('/owner-dashboard')}><FaHome size={18} /><span className="text-[8px]">Home</span></button>
-                    <button className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition" onClick={() => navigate('/add-item')}><FaPlus size={18} /><span className="text-[8px]">Add</span></button>
-                    <button className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition" onClick={() => navigate('/owner-orders')}><FaShoppingBag size={18} /><span className="text-[8px]">Orders</span></button>
-                    <button className="flex flex-col items-center gap-0.5 text-white/40 hover:text-white transition" onClick={() => navigate('/profile')}><FaUserCircle size={18} /><span className="text-[8px]">Profile</span></button>
-                </div>
-            </div>
-
-            <style jsx>{`
-                @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-                .animate-pulse { animation: pulse 2s ease-in-out infinite; }
-            `}</style>
         </nav>
     )
 }

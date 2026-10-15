@@ -22,8 +22,7 @@ import Invoice from './Invoice'
 import ReviewModal from './ReviewModal'
 import DeliveryBoyRatingModal from './DeliveryBoyRatingModal'
 import { toast } from 'react-toastify'
-// ✅ ADD THIS IMPORT
-import { serverUrl } from '../App'
+import { serverUrl } from '../../config'
 
 function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
     const navigate = useNavigate()
@@ -39,7 +38,6 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
     const [liveOtp, setLiveOtp] = useState(null)
     const [otpExpiry, setOtpExpiry] = useState(null)
 
-    // ✅ ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURN
     useEffect(() => {
         if (!socket || !isOpen) return
 
@@ -59,7 +57,6 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
         }
     }, [socket, isOpen, order?._id])
 
-    // ✅ HOOKS COMPLETE - NOW CONDITIONAL RETURN
     if (!isOpen || !order) return null
 
     const firstShop = order.shopOrders?.[0]
@@ -74,6 +71,18 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
     const hasReviewed = order?.userReview?.submitted || order?.hasReviewed || false
     const hasRatedDelivery = order?.deliveryRating?.submitted || false
 
+    // ✅ Calculate bill breakdown
+    const calculatedSubtotal = 
+        order.subtotal || 
+        firstShop?.subtotal || 
+        order.shopOrders?.reduce((sum, so) => sum + (so.subtotal || 0), 0) || 
+        0
+    const calculatedDeliveryFee = order.deliveryFee ?? 0
+    const calculatedTax = order.taxAmount ?? 23
+    const calculatedTotal = 
+        order.totalAmount || 
+        (calculatedSubtotal + calculatedDeliveryFee + calculatedTax)
+
     const formatDate = (dateString) => {
         const date = new Date(dateString)
         return date.toLocaleString('en-GB', {
@@ -87,12 +96,12 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
 
     const getStatusColor = () => {
         switch(status) {
-            case 'pending': return 'text-yellow-400 bg-yellow-500/15 border-yellow-500/30'
-            case 'preparing': return 'text-blue-400 bg-blue-500/15 border-blue-500/30'
-            case 'out of delivery': return 'text-orange-400 bg-orange-500/15 border-orange-500/30'
-            case 'delivered': return 'text-green-400 bg-green-500/15 border-green-500/30'
-            case 'cancelled': return 'text-red-400 bg-red-500/15 border-red-500/30'
-            default: return 'text-white/40 bg-white/5 border-white/10'
+            case 'pending': return 'text-amber-700 bg-amber-50 border-amber-200'
+            case 'preparing': return 'text-blue-700 bg-blue-50 border-blue-200'
+            case 'out of delivery': return 'text-orange-700 bg-orange-50 border-orange-200'
+            case 'delivered': return 'text-green-700 bg-green-50 border-green-200'
+            case 'cancelled': return 'text-red-700 bg-red-50 border-red-200'
+            default: return 'text-gray-600 bg-gray-50 border-gray-200'
         }
     }
 
@@ -104,17 +113,6 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
             case 'delivered': return '✅ Delivered'
             case 'cancelled': return '❌ Cancelled'
             default: return 'Pending'
-        }
-    }
-
-    const getStatusIcon = () => {
-        switch(status) {
-            case 'pending': return <FaClock className="text-yellow-400" />
-            case 'preparing': return <FaUtensils className="text-blue-400" />
-            case 'out of delivery': return <FaTruck className="text-orange-400" />
-            case 'delivered': return <FaCheckCircle className="text-green-400" />
-            case 'cancelled': return <FaTimesCircle className="text-red-400" />
-            default: return null
         }
     }
 
@@ -210,111 +208,109 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className='fixed inset-0 bg-black/85 backdrop-blur-3xl flex items-center justify-center z-[99999] p-4'
+                    className='fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999] p-4'
                     onClick={onClose}
                 >
                     <motion.div 
-                        initial={{ scale: 0.8, y: 30, opacity: 0 }}
+                        initial={{ scale: 0.9, y: 20, opacity: 0 }}
                         animate={{ scale: 1, y: 0, opacity: 1 }}
-                        exit={{ scale: 0.8, y: 30, opacity: 0 }}
+                        exit={{ scale: 0.9, y: 20, opacity: 0 }}
                         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                        className='relative bg-gradient-to-b from-[#1a1a2e] to-[#12121a] rounded-3xl border border-white/10 max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl shadow-black/50'
+                        className='relative bg-white rounded-3xl border border-gray-200 max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl'
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className='absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ff2d55] to-transparent' />
-                        <div className='absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ff6b35] to-transparent' />
+                        {/* Top accent bar */}
+                        <div className='h-1.5 w-full bg-gradient-to-r from-orange-400 via-amber-400 to-orange-400' />
 
-                        <motion.button 
-                            whileHover={{ scale: 1.1, rotate: 90 }}
-                            whileTap={{ scale: 0.9 }}
-                            className='absolute top-4 right-4 z-10 text-white/40 hover:text-white transition-all duration-300 w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 backdrop-blur-sm border border-white/5'
+                        <button 
+                            className='absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition-all duration-300 w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100'
                             onClick={onClose}
                         >
                             <FaTimes size={18} />
-                        </motion.button>
+                        </button>
 
                         <div className='p-6'>
                             {/* Header */}
-                            <div className='flex items-start gap-4 mb-5 pb-5 border-b border-white/5'>
+                            <div className='flex items-start gap-4 mb-5 pb-5 border-b border-gray-200'>
                                 <div className='flex-shrink-0 relative'>
                                     {showShopImage ? (
                                         <img 
                                             src={shopImage}
                                             alt={restaurant?.name || 'Restaurant'}
-                                            className='w-20 h-20 rounded-2xl object-cover border-2 border-white/10 shadow-xl'
+                                            className='w-20 h-20 rounded-2xl object-cover border-2 border-gray-200 shadow-sm'
                                             onError={() => handleImageError('shop')}
                                         />
                                     ) : (
-                                        <div className='w-20 h-20 rounded-2xl bg-gradient-to-br from-[#ff2d55]/20 to-[#ff6b35]/20 flex items-center justify-center border-2 border-white/10'>
-                                            <MdRestaurant className='text-white/30 text-3xl' />
+                                        <div className='w-20 h-20 rounded-2xl bg-gray-100 border-2 border-gray-200 flex items-center justify-center'>
+                                            <MdRestaurant className='text-gray-400 text-3xl' />
                                         </div>
                                     )}
-                                    <div className='absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-[#ff2d55] to-[#ff6b35] flex items-center justify-center shadow-lg shadow-[#ff2d55]/30 border-2 border-[#0a0a0f]'>
+                                    <div className='absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm border-2 border-white'>
                                         <MdVerified size={12} className="text-white" />
                                     </div>
                                 </div>
                                 <div className='flex-1 min-w-0'>
                                     <div className='flex items-center gap-2 flex-wrap'>
-                                        <h2 className='text-xl font-bold text-white truncate'>
+                                        <h2 className='text-xl font-bold text-gray-900 truncate'>
                                             {restaurant?.name || 'Cravely'}
                                         </h2>
                                         <button 
                                             onClick={copyOrderId}
-                                            className='text-white/30 hover:text-white/60 transition-all duration-300'
+                                            className='text-gray-400 hover:text-gray-600 transition-all'
                                         >
-                                            {copied ? <FaCheck size={12} className="text-green-400" /> : <FaCopy size={12} />}
+                                            {copied ? <FaCheck size={12} className="text-green-500" /> : <FaCopy size={12} />}
                                         </button>
                                     </div>
                                     <div className='flex items-center gap-2 mt-1 flex-wrap'>
                                         <span className={`text-[10px] px-3 py-1 rounded-full font-medium border flex items-center gap-1.5 ${getStatusColor()}`}>
-                                            {getStatusIcon()} {getStatusLabel()}
+                                            {getStatusLabel()}
                                         </span>
                                         {isDelivered && (
-                                            <span className='text-[10px] text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 flex items-center gap-1'>
+                                            <span className='text-[10px] text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200 flex items-center gap-1'>
                                                 <FaCheckCircle size={10} /> Delivered
                                             </span>
                                         )}
                                         {isOutForDelivery && (
-                                            <span className='text-[10px] text-orange-400 bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20 flex items-center gap-1 animate-pulse'>
+                                            <span className='text-[10px] text-orange-700 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-200 flex items-center gap-1 animate-pulse'>
                                                 <FaTruck size={10} /> On the way
                                             </span>
                                         )}
                                     </div>
-                                    <p className='text-white/30 text-xs flex items-center gap-1.5 mt-1'>
-                                        <FaCalendar size={10} className="text-white/20" />
+                                    <p className='text-gray-400 text-xs flex items-center gap-1.5 mt-1'>
+                                        <FaCalendar size={10} className="text-gray-300" />
                                         {formatDate(order.createdAt)}
                                     </p>
-                                    <p className='text-white/20 text-[10px] font-mono'>
+                                    <p className='text-gray-300 text-[10px] font-mono'>
                                         ID: {order._id}
                                     </p>
                                 </div>
                             </div>
 
-                            {/* ✅ OTP Display - Show only when out for delivery and not delivered */}
+                            {/* OTP Display */}
                             {otpToShow && !isDelivered && !isCancelled && (
-                                <div className='mb-5 p-4 rounded-2xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30'>
+                                <div className='mb-5 p-4 rounded-2xl bg-amber-50 border-2 border-amber-200'>
                                     <div className='flex items-center gap-3'>
-                                        <div className='w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center'>
-                                            <FaKey className='text-yellow-400 text-lg' />
+                                        <div className='w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center'>
+                                            <FaKey className='text-amber-600 text-lg' />
                                         </div>
                                         <div className='flex-1'>
-                                            <p className='text-white/60 text-[10px] font-medium uppercase tracking-wider'>Delivery OTP</p>
+                                            <p className='text-gray-500 text-[10px] font-medium uppercase tracking-wider'>Delivery OTP</p>
                                             <div className='flex items-center gap-2'>
-                                                <p className='text-3xl font-bold text-yellow-400 tracking-[0.2em] font-mono'>
+                                                <p className='text-2xl font-bold text-amber-700 tracking-[0.2em] font-mono'>
                                                     {otpToShow}
                                                 </p>
                                                 <button 
                                                     onClick={copyOtp}
-                                                    className='text-white/30 hover:text-white/60 transition-all duration-300'
+                                                    className='text-gray-400 hover:text-gray-600 transition'
                                                 >
                                                     <FaCopy size={14} />
                                                 </button>
                                             </div>
-                                            <p className='text-white/20 text-[10px]'>Share this OTP with the delivery boy</p>
+                                            <p className='text-gray-400 text-[10px]'>Share this OTP with the delivery boy</p>
                                         </div>
                                         <div className='text-right'>
-                                            <span className='text-[10px] text-green-400 bg-green-500/20 px-2 py-1 rounded-full border border-green-500/20 flex items-center gap-1'>
-                                                <span className='w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse' />
+                                            <span className='text-[10px] text-green-700 bg-green-50 px-2 py-1 rounded-full border border-green-200 flex items-center gap-1'>
+                                                <span className='w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse' />
                                                 Active
                                             </span>
                                         </div>
@@ -323,7 +319,7 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
                             )}
 
                             {/* Status Timeline */}
-                            <div className='mb-5 p-4 rounded-2xl bg-white/5 border border-white/5'>
+                            <div className='mb-5 p-4 rounded-2xl bg-gray-50 border border-gray-200'>
                                 <div className='flex items-center justify-between relative'>
                                     {[
                                         { label: 'Ordered', icon: <FaClock size={12} />, active: true },
@@ -334,12 +330,12 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
                                         <div key={idx} className='flex flex-col items-center gap-1 flex-1'>
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ${
                                                 step.active 
-                                                    ? 'bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white shadow-lg shadow-[#ff2d55]/30 scale-110' 
-                                                    : 'bg-white/10 text-white/30'
+                                                    ? 'bg-orange-500 text-white shadow-md shadow-orange-200 scale-110' 
+                                                    : 'bg-gray-200 text-gray-400'
                                             }`}>
                                                 {step.icon}
                                             </div>
-                                            <p className={`text-[8px] font-medium ${step.active ? 'text-white/70' : 'text-white/30'}`}>
+                                            <p className={`text-[8px] font-medium ${step.active ? 'text-gray-700' : 'text-gray-400'}`}>
                                                 {step.label}
                                             </p>
                                         </div>
@@ -350,101 +346,96 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
                             {/* Order Items */}
                             <div className='mb-4'>
                                 <div className='flex items-center justify-between mb-3'>
-                                    <h3 className='text-white/60 text-xs font-medium uppercase tracking-wider flex items-center gap-2'>
-                                        <FaBox size={12} className="text-[#ff6b35]" /> Items
+                                    <h3 className='text-gray-500 text-xs font-medium uppercase tracking-wider flex items-center gap-2'>
+                                        <FaBox size={12} className="text-orange-500" /> Items
                                     </h3>
-                                    <span className='text-white/30 text-[10px] bg-white/5 px-2.5 py-1 rounded-full border border-white/5'>
+                                    <span className='text-gray-400 text-[10px] bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200'>
                                         {firstShop?.shopOrderItems?.length || 0} items
                                     </span>
                                 </div>
-                                <div className='space-y-2 max-h-52 overflow-y-auto pr-1 custom-scrollbar'>
+                                <div className='space-y-2 max-h-52 overflow-y-auto pr-1'>
                                     {firstShop?.shopOrderItems?.map((item, idx) => {
                                         const itemImage = item.item?.image ? getImageUrl(item.item.image) : null
                                         const itemKey = `item_${idx}`
                                         const showItemImage = itemImage && !imageErrors[itemKey]
                                         
                                         return (
-                                            <motion.div 
+                                            <div 
                                                 key={idx} 
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: idx * 0.05 }}
-                                                className='flex items-center gap-3 bg-white/5 rounded-xl p-3 hover:bg-white/10 transition-all duration-300 border border-white/5 hover:border-[#ff2d55]/20'
+                                                className='flex items-center gap-3 bg-gray-50 rounded-xl p-3 hover:bg-gray-100 transition-all duration-300 border border-gray-200'
                                             >
                                                 {showItemImage ? (
                                                     <img 
                                                         src={itemImage}
                                                         alt={item.name}
-                                                        className='w-12 h-12 rounded-xl object-cover border border-white/10'
+                                                        className='w-12 h-12 rounded-xl object-cover border border-gray-200'
                                                         onError={() => handleImageError(itemKey)}
                                                     />
                                                 ) : (
-                                                    <div className='w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff2d55]/20 to-[#ff6b35]/20 flex items-center justify-center border border-white/10'>
-                                                        <FaUtensils className='text-white/30 text-lg' />
+                                                    <div className='w-12 h-12 rounded-xl bg-gray-200 flex items-center justify-center border border-gray-300'>
+                                                        <FaUtensils className='text-gray-400 text-lg' />
                                                     </div>
                                                 )}
                                                 <div className='flex-1'>
-                                                    <p className='text-white text-sm font-medium'>{item.name}</p>
-                                                    <p className='text-white/30 text-xs flex items-center gap-2'>
+                                                    <p className='text-gray-800 text-sm font-medium'>{item.name}</p>
+                                                    <p className='text-gray-400 text-xs flex items-center gap-2'>
                                                         <span>₹{item.price} × {item.quantity}</span>
                                                         {item.item?.foodType === 'veg' ? (
-                                                            <span className='text-green-400 text-[10px] bg-green-500/10 px-1.5 py-0.5 rounded-full border border-green-500/20'>Veg</span>
+                                                            <span className='text-green-600 text-[10px] bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200'>Veg</span>
                                                         ) : item.item?.foodType === 'non veg' ? (
-                                                            <span className='text-red-400 text-[10px] bg-red-500/10 px-1.5 py-0.5 rounded-full border border-red-500/20'>Non-Veg</span>
+                                                            <span className='text-red-600 text-[10px] bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200'>Non-Veg</span>
                                                         ) : null}
                                                     </p>
                                                 </div>
                                                 <div className='text-right'>
-                                                    <p className='text-white font-semibold text-sm'>₹{item.price * item.quantity}</p>
+                                                    <p className='text-gray-800 font-semibold text-sm'>₹{item.price * item.quantity}</p>
                                                 </div>
-                                            </motion.div>
+                                            </div>
                                         )
                                     })}
                                 </div>
                             </div>
 
-                            {/* ✅ Delivery Boy - Show number only BEFORE delivery */}
+                            {/* Delivery Boy */}
                             {deliveryBoy && !isCancelled && (
-                                <div className='mb-4 p-4 rounded-2xl bg-gradient-to-r from-[#ff2d55]/10 to-[#ff6b35]/10 border border-[#ff2d55]/20'>
-                                    <h3 className='text-white/60 text-xs font-medium uppercase tracking-wider mb-3 flex items-center gap-2'>
-                                        <FaMotorcycle size={12} className="text-[#ff6b35]" /> Delivery Partner
+                                <div className='mb-4 p-4 rounded-2xl bg-orange-50 border-2 border-orange-200'>
+                                    <h3 className='text-gray-500 text-xs font-medium uppercase tracking-wider mb-3 flex items-center gap-2'>
+                                        <FaMotorcycle size={12} className="text-orange-500" /> Delivery Partner
                                     </h3>
                                     <div className='flex items-center gap-3'>
-                                        <div className='w-12 h-12 rounded-full bg-gradient-to-br from-[#ff2d55] to-[#ff6b35] flex items-center justify-center shadow-lg shadow-[#ff2d55]/20 flex-shrink-0'>
+                                        <div className='w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center shadow-sm flex-shrink-0'>
                                             <FaMotorcycle className='text-white text-xl' />
                                         </div>
                                         <div className='flex-1'>
                                             <div className='flex items-center gap-2'>
-                                                <p className='text-white font-semibold text-sm'>{deliveryBoy.fullName}</p>
-                                                <span className='text-[8px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1 border border-green-500/20'>
-                                                    <span className='w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse' />
+                                                <p className='text-gray-800 font-semibold text-sm'>{deliveryBoy.fullName}</p>
+                                                <span className='text-[8px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1 border border-green-200'>
+                                                    <span className='w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse' />
                                                     Live
                                                 </span>
                                             </div>
-                                            {/* ✅ Show Mobile ONLY if NOT delivered */}
                                             {!isDelivered && (
                                                 <div className='flex items-center gap-2 text-xs mt-1'>
-                                                    <span className='text-white/40 flex items-center gap-1'>
-                                                        <FaPhone size={10} className="text-[#ff6b35]" />
+                                                    <span className='text-gray-500 flex items-center gap-1'>
+                                                        <FaPhone size={10} className="text-orange-500" />
                                                         {deliveryBoy.mobile}
                                                     </span>
-                                                    <a href={`tel:${deliveryBoy.mobile}`} className='text-[#ff6b35] hover:underline text-[10px] font-medium'>Call</a>
-                                                    <a href={`https://wa.me/${deliveryBoy.mobile}`} target="_blank" rel="noopener noreferrer" className='text-green-400 hover:underline text-[10px] font-medium'>
+                                                    <a href={`tel:${deliveryBoy.mobile}`} className='text-orange-500 hover:underline text-[10px] font-medium'>Call</a>
+                                                    <a href={`https://wa.me/${deliveryBoy.mobile}`} target="_blank" rel="noopener noreferrer" className='text-green-600 hover:underline text-[10px] font-medium'>
                                                         <FaWhatsapp size={11} className="inline" /> WhatsApp
                                                     </a>
                                                 </div>
                                             )}
-                                            {/* ✅ After delivery - Show "Delivered" message */}
                                             {isDelivered && (
-                                                <p className='text-green-400 text-xs font-medium flex items-center gap-1'>
+                                                <p className='text-green-600 text-xs font-medium flex items-center gap-1'>
                                                     <FaCheckCircle size={10} /> Order delivered successfully
                                                 </p>
                                             )}
                                         </div>
                                         {deliveryBoy.deliveryBoyRating?.average > 0 && (
-                                            <div className='flex items-center gap-1 bg-yellow-500/10 px-3 py-1.5 rounded-full border border-yellow-500/20'>
-                                                <FaStar className='text-yellow-400 text-[10px]' />
-                                                <span className='text-white/60 text-[10px] font-medium'>{deliveryBoy.deliveryBoyRating.average.toFixed(1)}</span>
+                                            <div className='flex items-center gap-1 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-200'>
+                                                <FaStar className='text-amber-500 text-[10px]' />
+                                                <span className='text-gray-600 text-[10px] font-medium'>{deliveryBoy.deliveryBoyRating.average.toFixed(1)}</span>
                                             </div>
                                         )}
                                     </div>
@@ -453,136 +444,161 @@ function OrderDetailModal({ isOpen, onClose, order, onCancelOrder }) {
 
                             {/* Delivery Address & Payment */}
                             <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4'>
-                                <div className='p-4 rounded-2xl bg-white/5 border border-white/5'>
-                                    <h3 className='text-white/40 text-[10px] font-medium uppercase tracking-wider mb-2 flex items-center gap-2'>
-                                        <FaMapMarkerAlt size={12} className="text-[#ff6b35]" /> Address
+                                <div className='p-4 rounded-2xl bg-gray-50 border border-gray-200'>
+                                    <h3 className='text-gray-400 text-[10px] font-medium uppercase tracking-wider mb-2 flex items-center gap-2'>
+                                        <FaMapMarkerAlt size={12} className="text-orange-500" /> Address
                                     </h3>
-                                    <p className='text-white/70 text-sm leading-relaxed'>
+                                    <p className='text-gray-700 text-sm leading-relaxed'>
                                         {order.deliveryAddress?.text || 'Address not available'}
                                     </p>
                                 </div>
-                                <div className='p-4 rounded-2xl bg-white/5 border border-white/5'>
-                                    <h3 className='text-white/40 text-[10px] font-medium uppercase tracking-wider mb-2 flex items-center gap-2'>
-                                        <FaCreditCard size={12} className="text-[#ff6b35]" /> Payment
+                                <div className='p-4 rounded-2xl bg-gray-50 border border-gray-200'>
+                                    <h3 className='text-gray-400 text-[10px] font-medium uppercase tracking-wider mb-2 flex items-center gap-2'>
+                                        <FaCreditCard size={12} className="text-orange-500" /> Payment
                                     </h3>
-                                    <p className='text-white text-sm capitalize'>{order.paymentMethod === 'cod' ? '💵 Cash on Delivery' : '💳 Online'}</p>
-                                    <p className={order.payment ? 'text-green-400 text-xs font-medium' : 'text-yellow-400 text-xs font-medium'}>
+                                    <p className='text-gray-800 text-sm capitalize'>{order.paymentMethod === 'cod' ? '💵 Cash on Delivery' : '💳 Online'}</p>
+                                    <p className={order.payment ? 'text-green-600 text-xs font-medium' : 'text-amber-600 text-xs font-medium'}>
                                         {order.payment ? '✅ Payment Successful' : '⏳ Payment Pending'}
                                     </p>
                                 </div>
                             </div>
 
-                            {/* Total */}
-                            <div className='mb-4 p-4 rounded-2xl bg-gradient-to-r from-[#ff2d55]/10 to-[#ff6b35]/10 border border-[#ff2d55]/20'>
-                                <div className='flex items-center justify-between'>
-                                    <span className='text-white/60 text-sm font-medium'>Total Amount</span>
-                                    <div className='text-right'>
-                                        <span className='text-[#ff6b35] font-bold text-2xl'>₹{order.totalAmount || firstShop?.subtotal || 0}</span>
-                                        <p className='text-white/20 text-[10px]'>Inclusive of all taxes</p>
+                            {/* ✅ BILL BREAKDOWN - WITH TAX */}
+                            <div className='mb-4 p-4 rounded-2xl bg-orange-50 border-2 border-orange-200'>
+                                <h3 className='text-gray-500 text-xs font-medium uppercase tracking-wider mb-3 flex items-center gap-2'>
+                                    <FaReceipt size={12} className="text-orange-500" /> Bill Details
+                                </h3>
+                                
+                                <div className='space-y-2'>
+                                    {/* Subtotal */}
+                                    <div className='flex justify-between items-center text-sm'>
+                                        <span className='text-gray-600 font-medium flex items-center gap-2'>
+                                            <FaUtensils size={11} className="text-gray-400" />
+                                            Item Total
+                                        </span>
+                                        <span className='text-gray-800 font-semibold'>
+                                            ₹{calculatedSubtotal}
+                                        </span>
+                                    </div>
+
+                                    {/* Delivery Fee */}
+                                    <div className='flex justify-between items-center text-sm'>
+                                        <span className='text-gray-600 font-medium flex items-center gap-2'>
+                                            <FaTruck size={11} className="text-gray-400" />
+                                            Delivery Fee
+                                        </span>
+                                        <span className={
+                                            calculatedDeliveryFee === 0 
+                                                ? 'text-green-600 font-semibold' 
+                                                : 'text-gray-800 font-semibold'
+                                        }>
+                                            {calculatedDeliveryFee === 0 ? 'FREE' : `₹${calculatedDeliveryFee}`}
+                                        </span>
+                                    </div>
+
+                                    {/* Tax */}
+                                    <div className='flex justify-between items-center text-sm'>
+                                        <span className='text-gray-600 font-medium flex items-center gap-2'>
+                                            <FaRupeeSign size={11} className="text-gray-400" />
+                                            Tax (GST)
+                                        </span>
+                                        <span className='text-gray-800 font-semibold'>
+                                            ₹{calculatedTax}
+                                        </span>
+                                    </div>
+
+                                    {/* Divider + Total */}
+                                    <div className='border-t-2 border-orange-200 pt-2 mt-2'>
+                                        <div className='flex justify-between items-center'>
+                                            <span className='text-gray-800 text-base font-bold'>Total</span>
+                                            <div className='text-right'>
+                                                <span className='text-orange-600 font-bold text-2xl'>
+                                                    ₹{calculatedTotal}
+                                                </span>
+                                                <p className='text-gray-400 text-[10px]'>Inclusive of all taxes</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className='flex flex-wrap gap-2 pt-3 border-t border-white/10'>
-                                {/* Track Order */}
+                            <div className='flex flex-wrap gap-2 pt-3 border-t border-gray-200'>
                                 {!isCancelled && !isDelivered && (
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={() => {
                                             navigate(`/track-order/${order._id}`)
                                             onClose()
                                         }}
-                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white text-xs font-medium hover:scale-105 transition-all duration-300 shadow-lg shadow-[#ff2d55]/20 flex items-center justify-center gap-2'
+                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium transition shadow-sm flex items-center justify-center gap-2'
                                     >
                                         <FaTruck size={14} /> Track Order
-                                    </motion.button>
+                                    </button>
                                 )}
                                 
-                                {/* Cancel */}
                                 {!isCancelled && !isDelivered && (
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={() => {
                                             onCancelOrder(order._id)
                                             onClose()
                                         }}
-                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/15 text-white/40 text-xs font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300 flex items-center justify-center gap-2'
+                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl border-2 border-gray-200 text-gray-500 text-xs font-medium hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition flex items-center justify-center gap-2'
                                     >
                                         <FaTrashAlt size={14} /> Cancel
-                                    </motion.button>
+                                    </button>
                                 )}
                                 
-                                {/* Order Again */}
                                 {!isCancelled && (
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={handleOrderAgain}
-                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-medium hover:scale-105 transition-all duration-300 shadow-lg shadow-green-500/20 flex items-center justify-center gap-2'
+                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-green-500 hover:bg-green-600 text-white text-xs font-medium transition shadow-sm flex items-center justify-center gap-2'
                                     >
                                         <FaShoppingCart size={14} /> Order Again
-                                    </motion.button>
+                                    </button>
                                 )}
 
-                                {/* Review */}
                                 {shouldShowReview && (
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={() => setShowReviewModal(true)}
-                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs font-medium hover:scale-105 transition-all duration-300 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2'
+                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium transition shadow-sm flex items-center justify-center gap-2'
                                     >
                                         <FaStar size={14} /> Review
-                                    </motion.button>
+                                    </button>
                                 )}
 
-                                {/* Rate Delivery */}
                                 {shouldShowDeliveryRating && (
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={() => setShowDeliveryRating(true)}
-                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-medium hover:scale-105 transition-all duration-300 shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2'
+                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium transition shadow-sm flex items-center justify-center gap-2'
                                     >
                                         <MdDeliveryDining size={14} /> Rate Delivery
-                                    </motion.button>
+                                    </button>
                                 )}
 
-                                {/* Invoice */}
                                 {isDelivered && !isCancelled && (
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={() => setShowInvoice(true)}
-                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-white/5 text-white/60 text-xs font-medium hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2 border border-white/10'
+                                        className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-xs font-medium hover:bg-gray-200 transition flex items-center justify-center gap-2 border border-gray-200'
                                     >
                                         <FaReceipt size={14} /> Invoice
-                                    </motion.button>
+                                    </button>
                                 )}
 
-                                {/* Share */}
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.95 }}
+                                <button
                                     onClick={handleShare}
-                                    className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-white/5 text-white/40 text-xs font-medium hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2 border border-white/10'
+                                    className='flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gray-100 text-gray-500 text-xs font-medium hover:bg-gray-200 transition flex items-center justify-center gap-2 border border-gray-200'
                                 >
                                     <FaShareAlt size={14} /> Share
-                                </motion.button>
+                                </button>
 
-                                {/* Review Submitted Badge */}
                                 {(isDelivered && (reviewSubmitted || hasReviewed)) && (
-                                    <span className='px-3 py-2 rounded-xl bg-green-500/20 text-green-400 text-xs font-medium flex items-center gap-1.5 border border-green-500/30'>
+                                    <span className='px-3 py-2 rounded-xl bg-green-50 text-green-700 text-xs font-medium flex items-center gap-1.5 border border-green-200'>
                                         <FaCheck size={12} /> Reviewed
                                     </span>
                                 )}
 
-                                {/* Delivery Rating Submitted Badge */}
                                 {(isDelivered && (deliveryRatingSubmitted || hasRatedDelivery)) && (
-                                    <span className='px-3 py-2 rounded-xl bg-purple-500/20 text-purple-400 text-xs font-medium flex items-center gap-1.5 border border-purple-500/30'>
+                                    <span className='px-3 py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-medium flex items-center gap-1.5 border border-purple-200'>
                                         <FaCheck size={12} /> Rated
                                     </span>
                                 )}

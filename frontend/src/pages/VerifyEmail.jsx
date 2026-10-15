@@ -4,11 +4,13 @@ import axios from 'axios'
 import { ClipLoader } from 'react-spinners'
 import { 
     FaCheckCircle, FaTimesCircle, FaEnvelope, FaArrowRight,
-    FaRocket, FaShieldAlt, FaStar, FaHome, FaSignInAlt
+    FaRocket, FaShieldAlt, FaStar, FaHome, FaSignInAlt,
+    FaSync, FaMailBulk
 } from 'react-icons/fa'
 import { motion } from 'framer-motion'
-// ✅ ADD THIS IMPORT
-import { serverUrl } from '../App'
+// ✅ FIXED: Correct import
+import { serverUrl } from '../../config'
+import { toast } from 'react-toastify'
 
 function VerifyEmail() {
     const [searchParams] = useSearchParams()
@@ -17,38 +19,65 @@ function VerifyEmail() {
     const [loading, setLoading] = useState(true)
     const [message, setMessage] = useState('')
     const [success, setSuccess] = useState(false)
+    const [email, setEmail] = useState('')
+    const [resending, setResending] = useState(false)
 
     useEffect(() => {
         const verifyEmail = async () => {
             if (!token) {
-                setMessage('No verification token found')
+                setMessage('No verification token found. Please check your email link.')
                 setLoading(false)
                 return
             }
 
             try {
-                // ✅ FIXED: Use serverUrl instead of hardcoded URL
                 const response = await axios.get(
                     `${serverUrl}/api/auth/verify-email/${token}`,
                     { withCredentials: true }
                 )
                 setMessage(response.data.message)
                 setSuccess(true)
+                
+                // ✅ Auto-redirect after 3 seconds
+                setTimeout(() => {
+                    navigate('/signin')
+                }, 3000)
             } catch (error) {
-                setMessage(error.response?.data?.message || 'Verification failed')
+                const errorMsg = error.response?.data?.message || 'Verification failed'
+                setMessage(errorMsg)
                 setSuccess(false)
+                
+                // ✅ Try to extract email from error or query
+                const emailParam = searchParams.get('email')
+                if (emailParam) setEmail(emailParam)
             } finally {
                 setLoading(false)
             }
         }
 
         verifyEmail()
-    }, [token])
+    }, [token, navigate, searchParams])
+
+    const handleResendVerification = async () => {
+        if (!email) {
+            toast.error('Please provide your email address')
+            return
+        }
+
+        setResending(true)
+        try {
+            await axios.post(`${serverUrl}/api/auth/resend-verification`, { email })
+            toast.success('Verification email resent! Please check your inbox.')
+            setResending(false)
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to resend verification')
+            setResending(false)
+        }
+    }
 
     if (loading) {
         return (
             <div className='min-h-screen bg-[#0a0a0f] flex flex-col justify-center items-center relative overflow-hidden'>
-                {/* Background Orbs */}
                 <div className='absolute inset-0 pointer-events-none'>
                     <div className='absolute -top-40 -left-40 w-[600px] h-[600px] bg-[#ff2d55]/5 rounded-full blur-3xl' />
                     <div className='absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-[#ff6b35]/5 rounded-full blur-3xl' />
@@ -72,7 +101,6 @@ function VerifyEmail() {
     return (
         <div className='min-h-screen bg-[#0a0a0f] flex flex-col justify-center items-center px-4 relative overflow-hidden'>
             
-            {/* ✅ Background Orbs */}
             <div className='absolute inset-0 pointer-events-none'>
                 <div className='absolute -top-40 -left-40 w-[600px] h-[600px] bg-[#ff2d55]/5 rounded-full blur-3xl animate-float-3d' />
                 <div className='absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-[#ff6b35]/5 rounded-full blur-3xl animate-float-3d animation-delay-300' />
@@ -87,11 +115,9 @@ function VerifyEmail() {
             >
                 <div className='glass-premium-ultra rounded-3xl p-8 border border-white/5 shadow-2xl shadow-black/50 relative overflow-hidden'>
                     
-                    {/* ✅ Glow Effect */}
                     <div className='absolute -top-40 -right-40 w-60 h-60 bg-[#ff2d55]/10 rounded-full blur-3xl' />
                     <div className='absolute -bottom-40 -left-40 w-60 h-60 bg-[#ff6b35]/10 rounded-full blur-3xl' />
                     
-                    {/* ✅ Icon & Header */}
                     <div className='relative z-10 text-center'>
                         <motion.div 
                             initial={{ scale: 0, rotate: -45 }}
@@ -136,7 +162,7 @@ function VerifyEmail() {
                                     className='flex items-center justify-center gap-2 text-xs text-white/30 mt-1'
                                 >
                                     <FaEnvelope className='text-[#ff6b35]' />
-                                    <span>Email verified successfully</span>
+                                    <span>Redirecting to login...</span>
                                 </motion.div>
                             </>
                         ) : (
@@ -170,7 +196,6 @@ function VerifyEmail() {
                         )}
                     </div>
 
-                    {/* ✅ Decorative Line */}
                     <div className='relative z-10 my-6'>
                         <div className='h-px bg-gradient-to-r from-transparent via-white/10 to-transparent' />
                         {success && (
@@ -180,7 +205,6 @@ function VerifyEmail() {
                         )}
                     </div>
 
-                    {/* ✅ Action Buttons */}
                     <div className='relative z-10 flex flex-col gap-3'>
                         {success ? (
                             <motion.button
@@ -195,6 +219,31 @@ function VerifyEmail() {
                             </motion.button>
                         ) : (
                             <>
+                                {/* ✅ Resend Verification */}
+                                <div className='flex gap-2'>
+                                    <input
+                                        type="email"
+                                        placeholder="Enter your email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className='flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-[#ff6b35]/50'
+                                    />
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={handleResendVerification}
+                                        disabled={resending || !email}
+                                        className='px-4 py-3 rounded-xl bg-[#ff6b35]/20 border border-[#ff6b35]/30 text-[#ff6b35] font-medium text-sm hover:bg-[#ff6b35]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
+                                    >
+                                        {resending ? (
+                                            <ClipLoader size={16} color="#ff6b35" />
+                                        ) : (
+                                            <FaSync size={14} />
+                                        )}
+                                        <span className='hidden sm:inline'>Resend</span>
+                                    </motion.button>
+                                </div>
+
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.95 }}
@@ -205,6 +254,7 @@ function VerifyEmail() {
                                     <span>Go to Home</span>
                                     <FaArrowRight size={14} className="group-hover:translate-x-1 transition-transform duration-300" />
                                 </motion.button>
+                                
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.95 }}
@@ -218,7 +268,6 @@ function VerifyEmail() {
                         )}
                     </div>
 
-                    {/* ✅ Footer */}
                     <div className='relative z-10 mt-6 pt-4 border-t border-white/5'>
                         <p className='text-[10px] text-white/20 text-center flex items-center justify-center gap-2'>
                             <span className='w-1 h-1 rounded-full bg-white/20' />

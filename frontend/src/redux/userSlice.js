@@ -55,7 +55,7 @@ const loadCartCountFromStorage = () => {
     return 0
 }
 
-// ✅ NEW: Load wishlist from localStorage
+// ✅ Load wishlist from localStorage
 const loadWishlistFromStorage = () => {
     try {
         const stored = localStorage.getItem('wishlist')
@@ -68,7 +68,7 @@ const loadWishlistFromStorage = () => {
     return []
 }
 
-// ✅ NEW: Load orders from localStorage
+// ✅ Load orders from localStorage
 const loadOrdersFromStorage = () => {
     try {
         const stored = localStorage.getItem('myOrders')
@@ -79,6 +79,20 @@ const loadOrdersFromStorage = () => {
         console.log("⚠️ Failed to load orders from storage")
     }
     return []
+}
+
+// ✅ Helper: Calculate cart totals
+const calculateCartTotals = (items) => {
+    const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    const cartCount = items.reduce((sum, item) => sum + item.quantity, 0)
+    return { totalAmount, cartCount }
+}
+
+// ✅ Helper: Save cart to localStorage
+const saveCartToStorage = (items, totalAmount, cartCount) => {
+    localStorage.setItem('cartData', JSON.stringify(items))
+    localStorage.setItem('cartTotal', String(totalAmount))
+    localStorage.setItem('cartCount', String(cartCount))
 }
 
 const initialState = {
@@ -92,10 +106,10 @@ const initialState = {
     cartItems: loadCartFromStorage(),
     totalAmount: loadCartTotalFromStorage(),
     cartCount: loadCartCountFromStorage(),
-    myOrders: loadOrdersFromStorage(),  // ✅ FIXED - loads from localStorage
+    myOrders: loadOrdersFromStorage(),
     searchItems: [],
     socket: null,
-    wishlist: loadWishlistFromStorage(),  // ✅ FIXED - loads from localStorage
+    wishlist: loadWishlistFromStorage(),
     loading: false,
     error: null
 }
@@ -105,7 +119,7 @@ const userSlice = createSlice({
     initialState,
     reducers: {
         // ============================================
-        // ✅ USER DATA - With localStorage
+        // ✅ USER DATA
         // ============================================
         setUserData: (state, action) => {
             state.userData = action.payload
@@ -150,7 +164,7 @@ const userSlice = createSlice({
         // ✅ SAVED ADDRESSES
         // ============================================
         setSavedAddresses: (state, action) => {
-            state.savedAddresses = action.payload
+            state.savedAddresses = action.payload || []
         },
         addSavedAddress: (state, action) => {
             state.savedAddresses.push(action.payload)
@@ -171,27 +185,34 @@ const userSlice = createSlice({
         // ✅ SHOPS & ITEMS
         // ============================================
         setShopsInMyCity: (state, action) => {
-            state.shopsInMyCity = action.payload
+            state.shopsInMyCity = action.payload || []
         },
         setItemsInMyCity: (state, action) => {
-            state.itemsInMyCity = action.payload
+            state.itemsInMyCity = action.payload || []
         },
 
         // ============================================
-        // ✅ CART - With localStorage
+        // ✅ CART - Fixed
         // ============================================
         addToCart: (state, action) => {
             const cartItem = action.payload
-            const existingItem = state.cartItems.find(i => i.id === cartItem.id || i._id === cartItem.id)
+            
+            // ✅ Validate cart item
+            if (!cartItem || !cartItem._id && !cartItem.id) {
+                console.log("⚠️ Invalid cart item:", cartItem)
+                return
+            }
+
+            const itemId = cartItem._id || cartItem.id
+            const existingItem = state.cartItems.find(i => i._id === itemId)
 
             if (existingItem) {
                 existingItem.quantity = (existingItem.quantity || 0) + (cartItem.quantity || 1)
             } else {
                 state.cartItems.push({
-                    id: cartItem.id || cartItem._id,
-                    _id: cartItem._id || cartItem.id,
-                    name: cartItem.name,
-                    price: Number(cartItem.price),
+                    _id: itemId,
+                    name: cartItem.name || 'Item',
+                    price: Number(cartItem.price) || 0,
                     quantity: Number(cartItem.quantity || 1),
                     image: cartItem.image || '',
                     shop: cartItem.shop || null,
@@ -200,43 +221,38 @@ const userSlice = createSlice({
                 })
             }
 
-            state.totalAmount = state.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-            state.cartCount = state.cartItems.reduce((sum, item) => sum + item.quantity, 0)
-
-            localStorage.setItem('cartData', JSON.stringify(state.cartItems))
-            localStorage.setItem('cartTotal', String(state.totalAmount))
-            localStorage.setItem('cartCount', String(state.cartCount))
+            // ✅ Recalculate totals
+            const totals = calculateCartTotals(state.cartItems)
+            state.totalAmount = totals.totalAmount
+            state.cartCount = totals.cartCount
+            
+            saveCartToStorage(state.cartItems, state.totalAmount, state.cartCount)
         },
 
         updateQuantity: (state, action) => {
             const { id, quantity } = action.payload
-            const item = state.cartItems.find(i => i.id === id || i._id === id)
+            const item = state.cartItems.find(i => i._id === id)
             if (item) {
                 item.quantity = Math.max(1, quantity)
-                state.totalAmount = state.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-                state.cartCount = state.cartItems.reduce((sum, item) => sum + item.quantity, 0)
-
-                localStorage.setItem('cartData', JSON.stringify(state.cartItems))
-                localStorage.setItem('cartTotal', String(state.totalAmount))
-                localStorage.setItem('cartCount', String(state.cartCount))
+                const totals = calculateCartTotals(state.cartItems)
+                state.totalAmount = totals.totalAmount
+                state.cartCount = totals.cartCount
+                saveCartToStorage(state.cartItems, state.totalAmount, state.cartCount)
             }
         },
 
         removeCartItem: (state, action) => {
-            state.cartItems = state.cartItems.filter(i => i.id !== action.payload && i._id !== action.payload)
-            state.totalAmount = state.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-            state.cartCount = state.cartItems.reduce((sum, item) => sum + item.quantity, 0)
-
-            localStorage.setItem('cartData', JSON.stringify(state.cartItems))
-            localStorage.setItem('cartTotal', String(state.totalAmount))
-            localStorage.setItem('cartCount', String(state.cartCount))
+            state.cartItems = state.cartItems.filter(i => i._id !== action.payload)
+            const totals = calculateCartTotals(state.cartItems)
+            state.totalAmount = totals.totalAmount
+            state.cartCount = totals.cartCount
+            saveCartToStorage(state.cartItems, state.totalAmount, state.cartCount)
         },
 
         clearCart: (state) => {
             state.cartItems = []
             state.totalAmount = 0
             state.cartCount = 0
-
             localStorage.removeItem('cartData')
             localStorage.removeItem('cartTotal')
             localStorage.removeItem('cartCount')
@@ -244,16 +260,14 @@ const userSlice = createSlice({
 
         resetCart: (state, action) => {
             state.cartItems = action.payload || []
-            state.totalAmount = state.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-            state.cartCount = state.cartItems.reduce((sum, item) => sum + item.quantity, 0)
-
-            localStorage.setItem('cartData', JSON.stringify(state.cartItems))
-            localStorage.setItem('cartTotal', String(state.totalAmount))
-            localStorage.setItem('cartCount', String(state.cartCount))
+            const totals = calculateCartTotals(state.cartItems)
+            state.totalAmount = totals.totalAmount
+            state.cartCount = totals.cartCount
+            saveCartToStorage(state.cartItems, state.totalAmount, state.cartCount)
         },
 
         // ============================================
-        // ✅ ORDERS
+        // ✅ ORDERS - Fixed with validation
         // ============================================
         setMyOrders: (state, action) => {
             state.myOrders = action.payload || []
@@ -269,18 +283,18 @@ const userSlice = createSlice({
             const { orderId, shopId, status } = action.payload
             const order = state.myOrders.find(o => o._id === orderId || o._id?.toString() === orderId)
 
-            if (order && order.shopOrders && Array.isArray(order.shopOrders)) {
-                order.shopOrders.forEach(shopOrder => {
-                    const shopIdMatch =
-                        shopOrder.shop?._id?.toString() === shopId?.toString() ||
-                        shopOrder.shop === shopId ||
-                        shopOrder.shop?.toString() === shopId?.toString()
+            if (order && order.shopOrders) {
+                // ✅ Don't update if already cancelled or delivered
+                const shopOrder = order.shopOrders.find(so => 
+                    so.shop?._id?.toString() === shopId?.toString() ||
+                    so.shop === shopId ||
+                    so.shop?.toString() === shopId?.toString()
+                )
 
-                    if (shopIdMatch) {
-                        shopOrder.status = status
-                    }
-                })
-                localStorage.setItem('myOrders', JSON.stringify(state.myOrders))
+                if (shopOrder && shopOrder.status !== 'cancelled' && shopOrder.status !== 'delivered') {
+                    shopOrder.status = status
+                    localStorage.setItem('myOrders', JSON.stringify(state.myOrders))
+                }
             }
         },
 
@@ -288,18 +302,17 @@ const userSlice = createSlice({
             const { orderId, shopId, status } = action.payload
             const order = state.myOrders.find(o => o._id === orderId || o._id?.toString() === orderId)
 
-            if (order && order.shopOrders && Array.isArray(order.shopOrders)) {
-                order.shopOrders.forEach(shopOrder => {
-                    const shopIdMatch =
-                        shopOrder.shop?._id?.toString() === shopId?.toString() ||
-                        shopOrder.shop === shopId ||
-                        shopOrder.shop?.toString() === shopId?.toString()
+            if (order && order.shopOrders) {
+                const shopOrder = order.shopOrders.find(so => 
+                    so.shop?._id?.toString() === shopId?.toString() ||
+                    so.shop === shopId ||
+                    so.shop?.toString() === shopId?.toString()
+                )
 
-                    if (shopIdMatch) {
-                        shopOrder.status = status
-                    }
-                })
-                localStorage.setItem('myOrders', JSON.stringify(state.myOrders))
+                if (shopOrder && shopOrder.status !== 'cancelled' && shopOrder.status !== 'delivered') {
+                    shopOrder.status = status
+                    localStorage.setItem('myOrders', JSON.stringify(state.myOrders))
+                }
             }
         },
 
@@ -309,7 +322,7 @@ const userSlice = createSlice({
             if (order) {
                 order.isCancelled = true
                 order.cancelledAt = new Date().toISOString()
-                if (order.shopOrders && Array.isArray(order.shopOrders)) {
+                if (order.shopOrders) {
                     order.shopOrders.forEach(shopOrder => {
                         shopOrder.status = 'cancelled'
                     })
@@ -355,6 +368,8 @@ const userSlice = createSlice({
         // ============================================
         toggleWishlist: (state, action) => {
             const itemId = action.payload
+            if (!itemId) return
+            
             const index = state.wishlist.indexOf(itemId)
             if (index === -1) {
                 state.wishlist.push(itemId)
@@ -369,7 +384,7 @@ const userSlice = createSlice({
         },
 
         // ============================================
-        // ✅ RESET - Complete State Reset
+        // ✅ RESET
         // ============================================
         resetUserState: (state) => {
             state.userData = null
@@ -446,11 +461,34 @@ export const {
 // ============================================
 export const selectUser = (state) => state.user.userData
 export const selectIsAuthenticated = (state) => !!state.user.userData
-export const selectCartItems = (state) => state.user.cartItems
-export const selectCartTotal = (state) => state.user.totalAmount
-export const selectCartCount = (state) => state.user.cartCount
+export const selectUserId = (state) => state.user.userData?._id || null
+export const selectUserRole = (state) => state.user.userData?.role || null
+export const selectUserEmail = (state) => state.user.userData?.email || null
+export const selectUserFullName = (state) => state.user.userData?.fullName || null
+
+export const selectCartItems = (state) => state.user.cartItems || []
+export const selectCartTotal = (state) => state.user.totalAmount || 0
+export const selectCartCount = (state) => state.user.cartCount || 0
 export const selectIsCartEmpty = (state) => state.user.cartItems.length === 0
-export const selectWishlist = (state) => state.user.wishlist
-export const selectMyOrders = (state) => state.user.myOrders
+
+export const selectWishlist = (state) => state.user.wishlist || []
+export const selectIsInWishlist = (state, itemId) => state.user.wishlist.includes(itemId)
+
+export const selectMyOrders = (state) => state.user.myOrders || []
+export const selectOrderById = (state, orderId) => 
+    state.user.myOrders.find(o => o._id === orderId || o._id?.toString() === orderId)
+
+export const selectOrdersByStatus = (state, status) => 
+    state.user.myOrders.filter(o => o.shopOrders?.some(so => so.status === status))
+
+export const selectCurrentCity = (state) => state.user.currentCity
+export const selectCurrentState = (state) => state.user.currentState
+export const selectSavedAddresses = (state) => state.user.savedAddresses || []
+export const selectDefaultAddress = (state) => 
+    state.user.savedAddresses.find(addr => addr.isDefault)
+
+export const selectLoading = (state) => state.user.loading
+export const selectError = (state) => state.user.error
+export const selectIsUserBlocked = (state) => state.user.userData?.isBlocked || false
 
 export default userSlice.reducer

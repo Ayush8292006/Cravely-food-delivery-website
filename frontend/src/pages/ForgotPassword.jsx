@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
-import { serverUrl } from '../App'
+import React, { useState, useEffect } from 'react'
+// ✅ FIXED: Correct import
+import { serverUrl } from '../../config'
 import { IoIosArrowRoundBack } from "react-icons/io";
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -8,7 +9,7 @@ import { MdMail } from "react-icons/md";
 import { 
     FaKey, FaLock, FaArrowRight, FaCheckCircle, 
     FaShieldAlt, FaBolt, FaEnvelope, FaMotorcycle,
-    FaArrowLeft, FaRocket, FaStar
+    FaArrowLeft, FaRocket, FaStar, FaSync
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { motion } from 'framer-motion';
@@ -23,100 +24,194 @@ function ForgotPassword() {
     const [err, setErr] = useState("")
     const [loading, setLoading] = useState(false)
     const [isVisible, setIsVisible] = useState(false)
+    const [timer, setTimer] = useState(0)
+    const [canResend, setCanResend] = useState(true)
 
-    React.useEffect(() => {
+    // ✅ OTP LENGTH - Change from 6 to 4
+    const OTP_LENGTH = 4  // ✅ Changed from 6 to 4
+
+    useEffect(() => {
         setTimeout(() => setIsVisible(true), 200)
     }, [])
 
+    // ✅ Countdown timer for resend
+    useEffect(() => {
+        if (timer > 0) {
+            const interval = setInterval(() => {
+                setTimer(prev => prev - 1)
+            }, 1000)
+            return () => clearInterval(interval)
+        } else {
+            setCanResend(true)
+        }
+    }, [timer])
+
+    // ✅ Auto-submit OTP when correct length is entered
+    useEffect(() => {
+        if (otp.length === OTP_LENGTH && step === 2) {
+            handleVerifyOtp()
+        }
+    }, [otp, step])
+
+    // ✅ Password strength checker
+    const getPasswordStrength = (pass) => {
+        if (!pass) return { score: 0, label: '', color: '', bar: '' }
+        let score = 0
+        if (pass.length >= 6) score++
+        if (pass.length >= 10) score++
+        if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score++
+        if (/\d/.test(pass)) score++
+        if (/[^A-Za-z0-9]/.test(pass)) score++
+        
+        const map = {
+            0: { label: 'Weak', color: 'text-red-400', bar: 'bg-red-400' },
+            1: { label: 'Weak', color: 'text-red-400', bar: 'bg-red-400' },
+            2: { label: 'Fair', color: 'text-yellow-400', bar: 'bg-yellow-400' },
+            3: { label: 'Good', color: 'text-blue-400', bar: 'bg-blue-400' },
+            4: { label: 'Strong', color: 'text-green-400', bar: 'bg-green-400' },
+            5: { label: 'Very Strong', color: 'text-emerald-400', bar: 'bg-emerald-400' }
+        }
+        return { score, ...map[score] }
+    }
+
+    const strength = getPasswordStrength(newPassword)
+
     const handleSendOtp = async () => {
+        if (!email) {
+            setErr('Email is required')
+            return
+        }
+
         setLoading(true)
+        setErr('')
+        
         try {
-            const result = await axios.post(`${serverUrl}/api/auth/send-otp`, { email },
+            await axios.post(`${serverUrl}/api/auth/send-otp`, { email },
                 { withCredentials: true })
-            console.log(result)
+            
             setErr("")
             setStep(2)
+            setTimer(60)
+            setCanResend(false)
             setLoading(false)
 
             toast.success("OTP sent successfully to your email! 📩", {
                 position: "top-center",
-                autoClose: 2000,
-            });
+                autoClose: 3000,
+            })
         } catch (error) {
-            setErr(error?.response?.data?.message)
+            setErr(error?.response?.data?.message || "Failed to send OTP")
             setLoading(false)
             toast.error(error?.response?.data?.message || "Failed to send OTP!", {
                 position: "top-center",
-                autoClose: 2000,
-            });
+                autoClose: 3000,
+            })
         }
     }
 
     const handleVerifyOtp = async () => {
+        // ✅ Changed from 6 to OTP_LENGTH
+        if (!otp || otp.length !== OTP_LENGTH) {
+            setErr(`Please enter a valid ${OTP_LENGTH}-digit OTP`)
+            return
+        }
+
         setLoading(true)
         try {
-            const result = await axios.post(`${serverUrl}/api/auth/verify-otp`, { email, otp },
+            await axios.post(`${serverUrl}/api/auth/verify-otp`, { email, otp },
                 { withCredentials: true })
-            console.log(result)
+            
             setErr("")
             setStep(3)
             setLoading(false)
+            
             toast.success("OTP verified successfully! ✅", {
                 position: "top-center",
-                autoClose: 2000,
-            });
+                autoClose: 3000,
+            })
         } catch (error) {
-            setErr(error?.response?.data?.message)
+            setErr(error?.response?.data?.message || "Invalid OTP")
             setLoading(false)
             toast.error(error?.response?.data?.message || "Invalid OTP!", {
                 position: "top-center",
-                autoClose: 2000,
-            });
+                autoClose: 3000,
+            })
+        }
+    }
+
+    const handleResendOtp = async () => {
+        if (!canResend) return
+        setLoading(true)
+        setErr('')
+        setOtp('')
+        
+        try {
+            await axios.post(`${serverUrl}/api/auth/send-otp`, { email },
+                { withCredentials: true })
+            
+            toast.success("OTP resent successfully! 📩", {
+                position: "top-center",
+                autoClose: 3000,
+            })
+            setTimer(60)
+            setCanResend(false)
+            setLoading(false)
+        } catch (error) {
+            setErr(error?.response?.data?.message || "Failed to resend OTP")
+            setLoading(false)
+            toast.error(error?.response?.data?.message || "Failed to resend OTP!", {
+                position: "top-center",
+                autoClose: 3000,
+            })
         }
     }
 
     const handleResetPassword = async () => {
-        setLoading(true)
         if (newPassword !== confirmPassword) {
-            setLoading(false)
             toast.error("Passwords do not match!", {
                 position: "top-center",
-                autoClose: 2000,
-            });
-            return null
+                autoClose: 3000,
+            })
+            return
         }
         if (newPassword.length < 6) {
-            setLoading(false)
             toast.error("Password must have at least 6 characters!", {
                 position: "top-center",
-                autoClose: 2000,
-            });
-            return null
+                autoClose: 3000,
+            })
+            return
         }
+
+        setLoading(true)
         try {
-            const result = await axios.post(`${serverUrl}/api/auth/reset-password`, { email, newPassword },
+            await axios.post(`${serverUrl}/api/auth/reset-password`, { email, newPassword },
                 { withCredentials: true })
-            console.log(result)
+            
             setErr("")
             setLoading(false)
 
             toast.success("Password reset successfully! 🎉", {
                 position: "top-center",
-                autoClose: 2000,
-            });
+                autoClose: 3000,
+            })
 
             setTimeout(() => {
-                navigate("/signin");
-            }, 2000);
+                navigate("/signin")
+            }, 2000)
         } catch (error) {
-            setErr(error?.response?.data?.message)
+            setErr(error?.response?.data?.message || "Failed to reset password!")
             setLoading(false)
-
             toast.error(error?.response?.data?.message || "Failed to reset password!", {
                 position: "top-center",
-                autoClose: 2000,
-            });
+                autoClose: 3000,
+            })
         }
+    }
+
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        return `${mins}:${secs.toString().padStart(2, '0')}`
     }
 
     const fadeUp = `transition-all duration-700 ease-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`
@@ -124,14 +219,14 @@ function ForgotPassword() {
     return (
         <div className='min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4 relative overflow-hidden'>
             
-            {/* ✅ Animated Background Orbs */}
+            {/* Animated Background Orbs */}
             <div className='absolute inset-0 pointer-events-none'>
                 <div className='absolute -top-40 -left-40 w-[600px] h-[600px] bg-[#ff2d55]/6 rounded-full blur-3xl animate-float-3d' />
                 <div className='absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-[#ff6b35]/6 rounded-full blur-3xl animate-float-3d animation-delay-300' />
                 <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#ffd93d]/4 rounded-full blur-3xl animate-float-3d animation-delay-600' />
             </div>
 
-            {/* ✅ Main Card */}
+            {/* Main Card */}
             <motion.div 
                 initial={{ opacity: 0, y: 30, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -139,7 +234,7 @@ function ForgotPassword() {
                 className={`glass-premium-ultra rounded-3xl p-6 sm:p-8 max-w-md w-full border border-white/10 shadow-2xl shadow-[#ff2d55]/10 ${fadeUp}`}
             >
                 
-                {/* ✅ Logo & Back Button */}
+                {/* Logo & Back Button */}
                 <div className='flex items-center gap-3 mb-6'>
                     <motion.button 
                         whileHover={{ scale: 1.05, rotate: -5 }}
@@ -160,7 +255,7 @@ function ForgotPassword() {
                     </div>
                 </div>
 
-                {/* ✅ Step Indicator */}
+                {/* Step Indicator */}
                 <div className='flex items-center gap-2 mb-6'>
                     {[1, 2, 3].map((s) => (
                         <div key={s} className='flex items-center gap-2'>
@@ -182,7 +277,7 @@ function ForgotPassword() {
                     ))}
                 </div>
 
-                {/* ✅ Step 1 - Email */}
+                {/* Step 1 - Email */}
                 {step === 1 && (
                     <motion.div 
                         initial={{ opacity: 0, x: 20 }}
@@ -222,7 +317,7 @@ function ForgotPassword() {
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.95 }}
-                            className='w-full btn-neon py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-300'
+                            className='w-full btn-neon py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-300 group'
                             onClick={handleSendOtp}
                             disabled={loading}
                         >
@@ -239,7 +334,7 @@ function ForgotPassword() {
                     </motion.div>
                 )}
 
-                {/* ✅ Step 2 - OTP Verification */}
+                {/* Step 2 - OTP Verification - FIXED for 4-digit OTP */}
                 {step === 2 && (
                     <motion.div 
                         initial={{ opacity: 0, x: 20 }}
@@ -257,15 +352,19 @@ function ForgotPassword() {
                                 <FaKey className="text-white/30 mr-3 text-lg" />
                                 <input
                                     type="text"
+                                    inputMode="numeric"
                                     className="flex-1 bg-transparent focus:outline-none text-white placeholder:text-white/30 text-center text-2xl tracking-[0.3em] font-mono"
-                                    placeholder="Enter 6-digit OTP"
-                                    maxLength="6"
-                                    onChange={(e) => setOtp(e.target.value)}
+                                    // ✅ Changed placeholder to 4-digit
+                                    placeholder={`Enter ${OTP_LENGTH}-digit OTP`}
+                                    // ✅ Changed maxLength to 4
+                                    maxLength={OTP_LENGTH}
+                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                                     value={otp}
+                                    autoFocus
                                 />
                             </div>
                             <p className='text-white/20 text-[10px] mt-1 text-center'>
-                                📧 OTP sent to your email
+                                📧 {OTP_LENGTH}-digit OTP sent to your email
                             </p>
                         </div>
 
@@ -282,9 +381,10 @@ function ForgotPassword() {
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.95 }}
-                            className='w-full btn-neon py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-300'
+                            className='w-full btn-neon py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-300 group'
                             onClick={handleVerifyOtp}
-                            disabled={loading}
+                            // ✅ Changed condition to OTP_LENGTH
+                            disabled={loading || otp.length < OTP_LENGTH}
                         >
                             {loading ? (
                                 <ClipLoader size={20} color='white' />
@@ -297,16 +397,41 @@ function ForgotPassword() {
                             )}
                         </motion.button>
 
-                        <button
-                            className='w-full mt-2 text-white/40 hover:text-white transition-all duration-300 text-xs flex items-center justify-center gap-1'
-                            onClick={() => { setStep(1); setErr('') }}
-                        >
-                            <FaArrowLeft size={10} /> Back to email
-                        </button>
+                        {/* Resend OTP with Timer */}
+                        <div className='flex items-center justify-between mt-3'>
+                            <button
+                                className='text-white/40 hover:text-white transition-all duration-300 text-xs flex items-center gap-1'
+                                onClick={() => { setStep(1); setErr('') }}
+                            >
+                                <FaArrowLeft size={10} /> Back to email
+                            </button>
+                            
+                            <button
+                                className={`text-xs flex items-center gap-1 transition-all duration-300 ${
+                                    canResend 
+                                        ? 'text-[#ff6b35] hover:text-[#ff7a45] hover:scale-105' 
+                                        : 'text-white/30 cursor-not-allowed'
+                                }`}
+                                onClick={handleResendOtp}
+                                disabled={!canResend || loading}
+                            >
+                                {!canResend ? (
+                                    <>
+                                        <FaSync size={10} className={loading ? 'animate-spin' : ''} />
+                                        Resend in {formatTime(timer)}
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaSync size={10} />
+                                        Resend OTP
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </motion.div>
                 )}
 
-                {/* ✅ Step 3 - Reset Password */}
+                {/* Step 3 - Reset Password */}
                 {step === 3 && (
                     <motion.div 
                         initial={{ opacity: 0, x: 20 }}
@@ -331,6 +456,21 @@ function ForgotPassword() {
                                     required
                                 />
                             </div>
+                            {newPassword && (
+                                <div className='mt-2 space-y-1'>
+                                    <div className='flex gap-1 h-1'>
+                                        {[1, 2, 3, 4, 5].map((i) => (
+                                            <div 
+                                                key={i}
+                                                className={`flex-1 rounded-full transition-all duration-500 ${
+                                                    i <= strength.score ? strength.bar : 'bg-white/10'
+                                                }`}
+                                            />
+                                        ))}
+                                    </div>
+                                    <p className={`text-[10px] ${strength.color}`}>{strength.label}</p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="mb-4">
@@ -346,6 +486,12 @@ function ForgotPassword() {
                                     required
                                 />
                             </div>
+                            {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                                <p className='text-red-400 text-[10px] mt-1'>❌ Passwords do not match</p>
+                            )}
+                            {newPassword && confirmPassword && newPassword === confirmPassword && (
+                                <p className='text-green-400 text-[10px] mt-1'>✅ Passwords match</p>
+                            )}
                         </div>
 
                         {err && (
@@ -361,9 +507,9 @@ function ForgotPassword() {
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.95 }}
-                            className='w-full btn-neon py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-300'
+                            className='w-full btn-neon py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-300 group'
                             onClick={handleResetPassword}
-                            disabled={loading}
+                            disabled={loading || !newPassword || newPassword !== confirmPassword}
                         >
                             {loading ? (
                                 <ClipLoader size={20} color='white' />
@@ -378,14 +524,14 @@ function ForgotPassword() {
                     </motion.div>
                 )}
 
-                {/* ✅ Divider */}
+                {/* Divider */}
                 <div className='flex items-center gap-3 my-5'>
                     <div className='flex-1 h-px bg-white/10' />
                     <span className='text-white/20 text-[10px]'>Secure</span>
                     <div className='flex-1 h-px bg-white/10' />
                 </div>
 
-                {/* ✅ Footer */}
+                {/* Footer */}
                 <div className='text-center'>
                     <span className='text-white/30 text-xs'>Remember your password? </span>
                     <span 
@@ -396,7 +542,7 @@ function ForgotPassword() {
                     </span>
                 </div>
 
-                {/* ✅ Trust Badges */}
+                {/* Trust Badges */}
                 <div className='flex justify-center gap-4 mt-4 text-white/20 text-[10px]'>
                     <span className='flex items-center gap-1'>
                         <FaShieldAlt size={10} className='text-green-400' /> Secure

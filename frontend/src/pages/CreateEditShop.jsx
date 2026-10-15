@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { IoArrowBack } from "react-icons/io5";
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -11,10 +11,9 @@ import {
     FaStar, FaHeart, FaFire, FaCrown, FaMagic, FaMotorcycle
 } from "react-icons/fa";
 import { MdRestaurant, MdLocationOn, MdVerified } from "react-icons/md";
-import { useState } from 'react';
 import { toast } from "react-toastify";
 import axios from 'axios';
-import { serverUrl } from '../App';
+import { serverUrl } from '../../config';
 import { setMyShopData } from '../redux/ownerSlice';
 import { ClipLoader } from 'react-spinners';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,30 +32,57 @@ function CreateEditShop() {
     const [loading, setLoading] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
     const [showSuccess, setShowSuccess] = useState(false)
-    const [activeStep, setActiveStep] = useState(1)
-    const [isFocused, setIsFocused] = useState(null)
     const [isLoaded, setIsLoaded] = useState(false)
+    const [errors, setErrors] = useState({})
     const dispatch = useDispatch()
 
-    React.useEffect(() => {
+    useEffect(() => {
         setTimeout(() => setIsLoaded(true), 300)
     }, [])
+
+    useEffect(() => {
+        return () => {
+            if (frontendImage && frontendImage.startsWith('blob:')) {
+                URL.revokeObjectURL(frontendImage)
+            }
+        }
+    }, [frontendImage])
 
     const isEditing = !!myShopData
     const isPending = myShopData && !myShopData.isApproved
 
-    const steps = [
-        { id: 1, label: 'Basic Info', icon: <FaStore />, desc: 'Shop details' },
-        { id: 2, label: 'Location', icon: <FaMapMarkerAlt />, desc: 'Address' },
-        { id: 3, label: 'Image', icon: <FaImage />, desc: 'Upload photo' }
-    ]
+    const validateField = (field, value) => {
+        const newErrors = { ...errors }
+        if (!value || !value.trim()) {
+            newErrors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
+        } else {
+            delete newErrors[field]
+        }
+        setErrors(newErrors)
+        return !newErrors[field]
+    }
 
     const handleImage = (e) => {
         const file = e.target.files[0]
-        if (file) {
-            setBackendImage(file)
-            setFrontendImage(URL.createObjectURL(file))
+        if (!file) return
+
+        const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif']
+        if (!validTypes.includes(file.type)) {
+            toast.error('Please upload a valid image file (JPEG, PNG, WEBP, GIF)')
+            return
         }
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Image size should be less than 5MB')
+            return
+        }
+
+        if (frontendImage && frontendImage.startsWith('blob:')) {
+            URL.revokeObjectURL(frontendImage)
+        }
+
+        setBackendImage(file)
+        setFrontendImage(URL.createObjectURL(file))
     }
 
     const handleDragOver = (e) => {
@@ -74,32 +100,29 @@ function CreateEditShop() {
         setIsDragging(false)
         const file = e.dataTransfer.files[0]
         if (file && file.type.startsWith('image/')) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error('Image size should be less than 5MB')
+                return
+            }
+            if (frontendImage && frontendImage.startsWith('blob:')) {
+                URL.revokeObjectURL(frontendImage)
+            }
             setBackendImage(file)
             setFrontendImage(URL.createObjectURL(file))
         }
     }
 
     const handleSubmit = async (e) => {
-        setLoading(true)
         e.preventDefault()
+        setLoading(true)
         
-        if (!name.trim()) {
-            toast.error('Please enter shop name')
-            setLoading(false)
-            return
-        }
-        if (!address.trim()) {
-            toast.error('Please enter shop address')
-            setLoading(false)
-            return
-        }
-        if (!city.trim()) {
-            toast.error('Please enter city')
-            setLoading(false)
-            return
-        }
-        if (!state.trim()) {
-            toast.error('Please enter state')
+        const isNameValid = validateField('name', name)
+        const isAddressValid = validateField('address', address)
+        const isCityValid = validateField('city', city)
+        const isStateValid = validateField('state', state)
+        
+        if (!isNameValid || !isAddressValid || !isCityValid || !isStateValid) {
+            toast.error('Please fill all required fields')
             setLoading(false)
             return
         }
@@ -145,279 +168,192 @@ function CreateEditShop() {
     const fadeUp = `transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`
 
     return (
-        <div className='min-h-screen bg-[#0a0a0f] relative overflow-hidden p-4'>
+        <div className='min-h-screen bg-[#f8f4f0] py-6 px-4'>
             
-            {/* ✅ Ultra Premium Animated Background */}
-            <div className='absolute inset-0 pointer-events-none'>
-                <motion.div 
-                    animate={{ x: [0, 80, -40, 0], y: [0, -40, 60, 0] }}
-                    transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-                    className='absolute -top-40 -left-40 w-[700px] h-[700px] bg-[#ff2d55]/4 rounded-full blur-3xl'
-                />
-                <motion.div 
-                    animate={{ x: [0, -80, 40, 0], y: [0, 40, -60, 0] }}
-                    transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-                    className='absolute -bottom-40 -right-40 w-[700px] h-[700px] bg-[#ff6b35]/4 rounded-full blur-3xl'
-                />
-                <motion.div 
-                    animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.5, 0.2] }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-                    className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] bg-[#ffd93d]/2 rounded-full blur-3xl'
-                />
-                {[...Array(8)].map((_, i) => (
-                    <motion.div
-                        key={i}
-                        className='absolute w-1 h-1 rounded-full bg-white/20'
-                        animate={{
-                            x: [Math.random() * window.innerWidth, Math.random() * window.innerWidth],
-                            y: [Math.random() * window.innerHeight, Math.random() * window.innerHeight],
-                            opacity: [0, 0.5, 0]
-                        }}
-                        transition={{
-                            duration: 10 + Math.random() * 10,
-                            repeat: Infinity,
-                            ease: "linear"
-                        }}
-                    />
-                ))}
+            {/* Back Button */}
+            <div className='max-w-5xl mx-auto mb-4'>
+                <motion.button 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    className='bg-white border-2 border-gray-200 px-4 py-2.5 rounded-full text-gray-600 hover:text-gray-800 hover:border-orange-300 transition-all duration-300 flex items-center gap-2 text-sm shadow-sm hover:shadow-md'
+                    onClick={() => navigate("/home")}
+                >
+                    <IoArrowBack size={16} />
+                    <span>Back to Dashboard</span>
+                </motion.button>
             </div>
 
-            {/* ✅ Premium Back Button */}
-            <motion.button 
-                initial={{ opacity: 0, x: -30, scale: 0.8 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                whileHover={{ scale: 1.08, rotate: -5 }}
-                whileTap={{ scale: 0.9 }}
-                className='fixed top-6 left-6 z-50 glass-premium px-4 sm:px-5 py-2.5 sm:py-3 rounded-full text-white/80 hover:text-white transition-all duration-300 flex items-center gap-2 text-xs sm:text-sm font-medium hover:shadow-2xl hover:shadow-[#ff2d55]/20 border border-white/10 hover:border-[#ff2d55]/30 backdrop-blur-2xl'
-                onClick={() => navigate("/home")}
-            >
-                <IoArrowBack size={16} className='group-hover:-translate-x-1 transition-transform' />
-                <span className='hidden sm:inline'>Back to Dashboard</span>
-            </motion.button>
-
-            {/* ✅ Main Container */}
-            <div className='relative z-10 max-w-6xl mx-auto mt-14 sm:mt-16'>
+            {/* Main Container */}
+            <div className='relative z-10 max-w-5xl mx-auto'>
                 
-                {/* ✅ Ultra Premium Header */}
+                {/* Header */}
                 <motion.div 
-                    initial={{ opacity: 0, y: -30 }}
+                    initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 sm:mb-10 ${fadeUp}`}
+                    className={`flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 ${fadeUp}`}
                 >
-                    <div className='flex items-center gap-3 sm:gap-5'>
-                        <motion.div 
-                            whileHover={{ rotate: 15, scale: 1.1 }}
-                            animate={{ 
-                                boxShadow: ['0 0 20px rgba(255,45,85,0.3)', '0 0 40px rgba(255,45,85,0.6)', '0 0 20px rgba(255,45,85,0.3)']
-                            }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                            className='w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-[#ff2d55] to-[#ff6b35] flex items-center justify-center shadow-2xl shadow-[#ff2d55]/40 relative'
-                        >
-                            {isEditing ? <FaEdit className='text-white text-2xl sm:text-3xl' /> : <FaStore className='text-white text-2xl sm:text-3xl' />}
-                            <motion.div 
-                                className='absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-400 border-2 border-[#0a0a0f]'
-                                animate={{ scale: [1, 1.3, 1] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                            />
-                        </motion.div>
+                    <div className='flex items-center gap-4'>
+                        <div className='w-14 h-14 rounded-2xl bg-orange-500 flex items-center justify-center shadow-md shadow-orange-200'>
+                            {isEditing ? <FaEdit className='text-white text-2xl' /> : <FaStore className='text-white text-2xl' />}
+                        </div>
                         <div>
-                            <h1 className='text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight'>
+                            <h1 className='text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight'>
                                 {isEditing ? 'Edit Shop' : 'Create Shop'}
-                                <span className='ml-2 sm:ml-3 text-xs sm:text-sm font-normal bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] bg-clip-text text-transparent'>
-                                    {isEditing ? '✏️ Update' : '🚀 New'}
-                                </span>
                             </h1>
-                            <p className='text-white/40 text-xs sm:text-sm flex items-center gap-2'>
-                                <span className='w-1.5 h-1.5 rounded-full bg-[#ff6b35] animate-pulse' />
+                            <p className='text-gray-500 text-sm flex items-center gap-2 font-medium'>
+                                <span className='w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse' />
                                 {isEditing ? 'Update your restaurant details' : 'Start your food delivery journey'}
                             </p>
                         </div>
                     </div>
                     
                     {isPending && (
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            whileHover={{ scale: 1.05 }}
-                            className='flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 rounded-full bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 border border-yellow-500/30 shadow-lg shadow-yellow-500/10'
-                        >
-                            <div className='relative'>
-                                <FaClock className='text-yellow-400 text-xs sm:text-sm' />
-                                <span className='absolute -top-1 -right-1 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-ping' />
-                            </div>
-                            <span className='text-yellow-400 text-[10px] sm:text-xs font-medium'>Pending Approval</span>
-                            <span className='w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse' />
-                        </motion.div>
+                        <div className='flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border-2 border-amber-200'>
+                            <FaClock className='text-amber-500' />
+                            <span className='text-amber-700 text-xs font-bold'>Pending Approval</span>
+                            <span className='w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse' />
+                        </div>
                     )}
                 </motion.div>
 
-                {/* ✅ Premium Steps - Responsive */}
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex items-center gap-2 sm:gap-3 mb-8 sm:mb-10 px-3 sm:px-5 py-3 sm:py-4 rounded-2xl glass-premium border border-white/5 shadow-xl shadow-black/20 overflow-x-auto ${fadeUp}`}
-                >
-                    {steps.map((step, idx) => (
-                        <React.Fragment key={step.id}>
-                            <motion.div 
-                                whileHover={{ scale: 1.05 }}
-                                className={`flex items-center gap-2 sm:gap-3 cursor-pointer px-2 sm:px-3 py-1 rounded-xl transition-all duration-300 flex-shrink-0 ${
-                                    activeStep >= step.id 
-                                        ? 'bg-gradient-to-r from-[#ff2d55]/20 to-[#ff6b35]/20 border border-[#ff2d55]/20' 
-                                        : 'hover:bg-white/5'
-                                }`}
-                                onClick={() => setActiveStep(step.id)}
-                            >
-                                <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300 ${
-                                    activeStep >= step.id 
-                                        ? 'bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white shadow-lg shadow-[#ff2d55]/30' 
-                                        : 'bg-white/10 text-white/30'
-                                }`}>
-                                    {activeStep > step.id ? <FaCheck size={12} className="sm:text-sm" /> : step.id}
-                                </div>
-                                <div className='hidden sm:block'>
-                                    <p className={`text-[10px] sm:text-xs font-medium ${
-                                        activeStep >= step.id ? 'text-white' : 'text-white/30'
-                                    }`}>
-                                        {step.label}
-                                    </p>
-                                    <p className='text-[7px] sm:text-[8px] text-white/20'>{step.desc}</p>
-                                </div>
-                            </motion.div>
-                            {idx < steps.length - 1 && (
-                                <motion.div 
-                                    className={`flex-1 h-[2px] rounded-full transition-all duration-500 ${
-                                        activeStep > step.id ? 'bg-gradient-to-r from-[#ff2d55] to-[#ff6b35]' : 'bg-white/10'
-                                    }`}
-                                    animate={{ 
-                                        width: activeStep > step.id ? '100%' : '50%'
-                                    }}
-                                />
-                            )}
-                        </React.Fragment>
-                    ))}
-                </motion.div>
-
-                {/* ✅ Main Content - Grid */}
-                <div className='grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6'>
+                {/* Main Content - Square Layout */}
+                <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
                     
-                    {/* ✅ Left Column - Form (2/3) */}
+                    {/* Form - Takes 2/3 width */}
                     <div className='lg:col-span-2'>
                         <motion.div 
-                            initial={{ opacity: 0, x: -40, rotateY: -5 }}
-                            animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                            initial={{ opacity: 0, x: -30 }}
+                            animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
-                            className='glass-premium rounded-3xl border border-white/5 p-5 sm:p-6 md:p-8 shadow-2xl shadow-[#ff2d55]/5 relative overflow-hidden group hover:shadow-[#ff2d55]/15 transition-all duration-500'
+                            className={`bg-white border-2 border-gray-200 rounded-3xl p-6 sm:p-8 shadow-lg ${fadeUp}`}
                         >
-                            <div className='absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ff2d55] to-transparent' />
-                            <div className='absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ff6b35] to-transparent' />
-                            <div className='absolute -top-20 -right-20 w-40 h-40 bg-[#ff2d55]/5 rounded-full blur-2xl group-hover:bg-[#ff2d55]/10 transition-all duration-700' />
-                            <div className='absolute -bottom-20 -left-20 w-40 h-40 bg-[#ff6b35]/5 rounded-full blur-2xl group-hover:bg-[#ff6b35]/10 transition-all duration-700' />
-
-                            <form className='space-y-4 sm:space-y-5 relative z-10' onSubmit={handleSubmit}>
+                            <form className='space-y-5' onSubmit={handleSubmit}>
                                 
-                                {/* ✅ Shop Name */}
+                                {/* Shop Name - Full Width */}
                                 <div>
-                                    <label className='block text-white/60 text-[10px] sm:text-xs font-medium mb-1.5 flex items-center gap-2'>
-                                        <FaStore className='text-[#ff6b35]' size={14} />
-                                        Shop Name
+                                    <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
+                                        <FaStore className='text-orange-500' size={14} />
+                                        Shop Name <span className='text-red-500'>*</span>
                                     </label>
-                                    <div className='relative group'>
-                                        <input 
-                                            type="text" 
-                                            placeholder='Enter your shop name...' 
-                                            className={`w-full bg-[#18181D] border rounded-xl px-4 py-3 sm:py-3.5 text-white placeholder:text-white/30 focus:outline-none transition-all duration-300 text-sm ${
-                                                isFocused === 'name' 
-                                                    ? 'border-[#ff2d55] shadow-lg shadow-[#ff2d55]/10' 
-                                                    : 'border-white/10 hover:border-white/20'
-                                            }`}
-                                            onChange={(e) => setName(e.target.value)}
-                                            value={name}
-                                            onFocus={() => { setActiveStep(1); setIsFocused('name') }}
-                                            onBlur={() => setIsFocused(null)}
-                                            required
-                                        />
-                                        <motion.div 
-                                            className='absolute right-3 top-1/2 -translate-y-1/2 text-white/20'
-                                            animate={{ opacity: name ? 1 : 0 }}
-                                        >
-                                            <FaCheckCircle size={16} className='text-green-400' />
-                                        </motion.div>
-                                    </div>
+                                    <input 
+                                        type="text" 
+                                        placeholder='Enter your shop name...' 
+                                        className={`w-full bg-gray-50 border-2 rounded-xl px-4 py-3.5 text-gray-800 placeholder:text-gray-400 focus:outline-none transition-all duration-300 text-sm ${
+                                            errors.name 
+                                                ? 'border-red-400 hover:border-red-500' 
+                                                : 'border-gray-200 hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
+                                        }`}
+                                        onChange={(e) => {
+                                            setName(e.target.value)
+                                            if (errors.name) validateField('name', e.target.value)
+                                        }}
+                                        value={name}
+                                        onBlur={() => validateField('name', name)}
+                                        required
+                                    />
+                                    {errors.name && (
+                                        <p className='text-red-500 text-xs mt-1 font-medium'>{errors.name}</p>
+                                    )}
                                 </div>
 
-                                {/* ✅ Address */}
+                                {/* Address - Full Width */}
                                 <div>
-                                    <label className='block text-white/60 text-[10px] sm:text-xs font-medium mb-1.5 flex items-center gap-2'>
-                                        <FaMapMarkerAlt className='text-[#ff6b35]' size={14} />
-                                        Address
+                                    <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
+                                        <FaMapMarkerAlt className='text-orange-500' size={14} />
+                                        Address <span className='text-red-500'>*</span>
                                     </label>
-                                    <div className='relative group'>
-                                        <input 
-                                            type="text" 
-                                            placeholder='Enter your shop address...' 
-                                            className={`w-full bg-[#18181D] border rounded-xl px-4 py-3 sm:py-3.5 text-white placeholder:text-white/30 focus:outline-none transition-all duration-300 text-sm ${
-                                                isFocused === 'address' 
-                                                    ? 'border-[#ff2d55] shadow-lg shadow-[#ff2d55]/10' 
-                                                    : 'border-white/10 hover:border-white/20'
-                                            }`}
-                                            onChange={(e) => setAddress(e.target.value)}
-                                            value={address}
-                                            onFocus={() => { setActiveStep(2); setIsFocused('address') }}
-                                            onBlur={() => setIsFocused(null)}
-                                            required
-                                        />
-                                    </div>
+                                    <input 
+                                        type="text" 
+                                        placeholder='Enter your shop address...' 
+                                        className={`w-full bg-gray-50 border-2 rounded-xl px-4 py-3.5 text-gray-800 placeholder:text-gray-400 focus:outline-none transition-all duration-300 text-sm ${
+                                            errors.address 
+                                                ? 'border-red-400 hover:border-red-500' 
+                                                : 'border-gray-200 hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
+                                        }`}
+                                        onChange={(e) => {
+                                            setAddress(e.target.value)
+                                            if (errors.address) validateField('address', e.target.value)
+                                        }}
+                                        value={address}
+                                        onBlur={() => validateField('address', address)}
+                                        required
+                                    />
+                                    {errors.address && (
+                                        <p className='text-red-500 text-xs mt-1 font-medium'>{errors.address}</p>
+                                    )}
                                 </div>
 
-                                {/* ✅ City & State */}
-                                <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                                {/* City & State - Side by Side */}
+                                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                                     <div>
-                                        <label className='block text-white/60 text-[10px] sm:text-xs font-medium mb-1.5 flex items-center gap-2'>
-                                            <FaCity className='text-[#ff6b35]' size={14} />
-                                            City
+                                        <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
+                                            <FaCity className='text-orange-500' size={14} />
+                                            City <span className='text-red-500'>*</span>
                                         </label>
                                         <input 
                                             type="text" 
                                             placeholder='Enter city...' 
-                                            className='w-full bg-[#18181D] border border-white/10 rounded-xl px-4 py-3 sm:py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-[#ff2d55]/50 transition-all duration-300 text-sm'
-                                            onChange={(e) => setCity(e.target.value)}
+                                            className={`w-full bg-gray-50 border-2 rounded-xl px-4 py-3.5 text-gray-800 placeholder:text-gray-400 focus:outline-none transition-all duration-300 text-sm ${
+                                                errors.city 
+                                                    ? 'border-red-400 hover:border-red-500' 
+                                                    : 'border-gray-200 hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
+                                            }`}
+                                            onChange={(e) => {
+                                                setCity(e.target.value)
+                                                if (errors.city) validateField('city', e.target.value)
+                                            }}
                                             value={city}
+                                            onBlur={() => validateField('city', city)}
                                             required
                                         />
+                                        {errors.city && (
+                                            <p className='text-red-500 text-xs mt-1 font-medium'>{errors.city}</p>
+                                        )}
                                     </div>
                                     <div>
-                                        <label className='block text-white/60 text-[10px] sm:text-xs font-medium mb-1.5 flex items-center gap-2'>
-                                            <FaMapPin className='text-[#ff6b35]' size={14} />
-                                            State
+                                        <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
+                                            <FaMapPin className='text-orange-500' size={14} />
+                                            State <span className='text-red-500'>*</span>
                                         </label>
                                         <input 
                                             type="text" 
                                             placeholder='Enter state...' 
-                                            className='w-full bg-[#18181D] border border-white/10 rounded-xl px-4 py-3 sm:py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-[#ff2d55]/50 transition-all duration-300 text-sm'
-                                            onChange={(e) => setState(e.target.value)}
+                                            className={`w-full bg-gray-50 border-2 rounded-xl px-4 py-3.5 text-gray-800 placeholder:text-gray-400 focus:outline-none transition-all duration-300 text-sm ${
+                                                errors.state 
+                                                    ? 'border-red-400 hover:border-red-500' 
+                                                    : 'border-gray-200 hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
+                                            }`}
+                                            onChange={(e) => {
+                                                setState(e.target.value)
+                                                if (errors.state) validateField('state', e.target.value)
+                                            }}
                                             value={state}
+                                            onBlur={() => validateField('state', state)}
                                             required
                                         />
+                                        {errors.state && (
+                                            <p className='text-red-500 text-xs mt-1 font-medium'>{errors.state}</p>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* ✅ Image Upload */}
+                                {/* Image Upload - Full Width */}
                                 <div>
-                                    <label className='block text-white/60 text-[10px] sm:text-xs font-medium mb-1.5 flex items-center gap-2'>
-                                        <FaImage className='text-[#ff6b35]' size={14} />
+                                    <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
+                                        <FaImage className='text-orange-500' size={14} />
                                         Shop Image
                                     </label>
                                     <div 
-                                        className={`relative border-2 border-dashed rounded-xl p-4 sm:p-6 text-center transition-all duration-300 ${
+                                        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${
                                             isDragging 
-                                                ? 'border-[#ff2d55] bg-[#ff2d55]/10 shadow-lg shadow-[#ff2d55]/20' 
-                                                : 'border-white/10 hover:border-[#ff2d55]/30 hover:bg-white/5'
+                                                ? 'border-orange-400 bg-orange-50' 
+                                                : 'border-gray-300 hover:border-orange-300 bg-gray-50 hover:bg-gray-100'
                                         }`}
                                         onDragOver={handleDragOver}
                                         onDragLeave={handleDragLeave}
                                         onDrop={handleDrop}
-                                        onFocus={() => setActiveStep(3)}
                                     >
                                         <input 
                                             type="file" 
@@ -426,65 +362,59 @@ function CreateEditShop() {
                                             onChange={handleImage}
                                         />
                                         <div className='flex flex-col items-center gap-2'>
-                                            <motion.div 
-                                                className='w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/5 flex items-center justify-center'
-                                                whileHover={{ scale: 1.1, rotate: 10 }}
-                                            >
-                                                <FaCamera className='text-white/30 text-xl sm:text-2xl' />
-                                            </motion.div>
-                                            <p className='text-white/30 text-xs sm:text-sm'>
+                                            <div className='w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center'>
+                                                <FaCamera className='text-gray-400 text-2xl' />
+                                            </div>
+                                            <p className='text-gray-500 text-sm font-medium'>
                                                 {isDragging ? 'Drop your image here 📥' : 'Click or drag to upload'}
                                             </p>
-                                            <p className='text-white/20 text-[10px] sm:text-xs'>PNG, JPG up to 5MB</p>
+                                            <p className='text-gray-400 text-xs'>PNG, JPG up to 5MB</p>
                                         </div>
                                     </div>
                                     
                                     {frontendImage && (
                                         <motion.div 
-                                            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                            className='mt-4 relative group'
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            className='mt-4 relative'
                                         >
                                             <img 
                                                 src={frontendImage} 
                                                 alt="Shop preview" 
-                                                className='w-full h-40 sm:h-52 object-cover rounded-xl border border-white/10 shadow-xl'
+                                                className='w-full h-48 object-cover rounded-xl border-2 border-gray-200'
                                             />
-                                            <div className='absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent rounded-xl' />
                                             <button
                                                 type="button"
-                                                className='absolute top-2 right-2 sm:top-3 sm:right-3 w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-red-500/90 text-white flex items-center justify-center hover:bg-red-500 hover:scale-110 transition-all duration-300 shadow-lg shadow-red-500/30'
+                                                className='absolute top-3 right-3 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all duration-300 text-sm shadow-md'
                                                 onClick={() => {
+                                                    if (frontendImage && frontendImage.startsWith('blob:')) {
+                                                        URL.revokeObjectURL(frontendImage)
+                                                    }
                                                     setFrontendImage(null)
                                                     setBackendImage(null)
                                                 }}
                                             >
-                                                <FaTimes size={14} className="sm:text-base" />
+                                                <FaTimes size={14} />
                                             </button>
-                                            <div className='absolute bottom-2 left-2 sm:bottom-3 sm:left-3 flex items-center gap-2'>
-                                                <div className='px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-black/60 backdrop-blur-sm border border-white/10'>
-                                                    <span className='text-white/60 text-[10px] sm:text-xs'>✅ Image uploaded</span>
-                                                </div>
-                                            </div>
                                         </motion.div>
                                     )}
                                 </div>
 
-                                {/* ✅ Submit Button */}
+                                {/* Submit Button */}
                                 <motion.button 
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     type="submit"
-                                    className='w-full py-3.5 sm:py-4 rounded-xl bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white font-semibold shadow-lg shadow-[#ff2d55]/30 hover:shadow-[#ff2d55]/50 transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm group'
+                                    className='w-full py-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-sm shadow-orange-200 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 text-sm'
                                     disabled={loading}
                                 >
                                     {loading ? (
                                         <ClipLoader size={20} color='white' />
                                     ) : (
                                         <>
-                                            <FaSave size={14} className="sm:text-base group-hover:scale-110 transition-transform" />
+                                            <FaSave size={16} />
                                             {isEditing ? 'Update Shop' : 'Create Shop'}
-                                            <FaArrowRight size={12} className="sm:text-sm group-hover:translate-x-1 transition-transform" />
+                                            <FaArrowRight size={14} />
                                         </>
                                     )}
                                 </motion.button>
@@ -492,99 +422,86 @@ function CreateEditShop() {
                         </motion.div>
                     </div>
 
-                    {/* ✅ Right Column - Info (1/3) */}
+                    {/* Sidebar - Takes 1/3 width */}
                     <div className='space-y-4'>
                         
-                        {/* ✅ Pending Status Card */}
+                        {/* Pending Status */}
                         {isPending && (
                             <motion.div 
-                                initial={{ opacity: 0, x: 40, scale: 0.9 }}
-                                animate={{ opacity: 1, x: 0, scale: 1 }}
-                                whileHover={{ scale: 1.02 }}
-                                className='glass-premium p-4 sm:p-5 rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-yellow-600/5'
+                                initial={{ opacity: 0, x: 30 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                className='bg-amber-50 border-2 border-amber-200 p-4 rounded-2xl'
                             >
                                 <div className='flex items-start gap-3'>
-                                    <div className='w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0'>
-                                        <FaClock className='text-yellow-400 text-lg sm:text-xl' />
+                                    <div className='w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0'>
+                                        <FaClock className='text-amber-600 text-lg' />
                                     </div>
                                     <div>
-                                        <h4 className='text-yellow-400 font-semibold text-xs sm:text-sm'>Pending Approval</h4>
-                                        <p className='text-white/40 text-[10px] sm:text-xs mt-1'>Your shop is under review by admin.</p>
-                                        <div className='mt-2 sm:mt-3 flex items-center gap-2'>
-                                            <span className='w-1.5 h-1.5 bg-yellow-400 rounded-full animate-ping' />
-                                            <span className='text-yellow-400/60 text-[8px] sm:text-[10px]'>Under Review</span>
+                                        <h4 className='text-amber-800 font-bold text-sm'>Pending Approval</h4>
+                                        <p className='text-amber-600 text-xs mt-1 font-medium'>Your shop is under review by admin.</p>
+                                        <div className='mt-2 flex items-center gap-2'>
+                                            <span className='w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse' />
+                                            <span className='text-amber-600 text-[10px] font-bold'>Under Review</span>
                                         </div>
                                     </div>
                                 </div>
                             </motion.div>
                         )}
 
-                        {/* ✅ Quick Tips */}
+                        {/* Quick Tips */}
                         <motion.div 
-                            initial={{ opacity: 0, x: 40 }}
+                            initial={{ opacity: 0, x: 30 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.2 }}
-                            whileHover={{ y: -2 }}
-                            className='glass-premium p-4 sm:p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-white/[0.03] to-transparent'
+                            className='bg-white border-2 border-gray-200 p-5 rounded-2xl shadow-lg'
                         >
-                            <h4 className='text-white font-semibold text-xs sm:text-sm mb-3 sm:mb-4 flex items-center gap-2'>
-                                <motion.div
-                                    animate={{ rotate: [0, 10, -10, 0] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                >
-                                    <FaInfoCircle className='text-[#ff6b35] text-sm sm:text-base' />
-                                </motion.div>
-                                Pro Tips
+                            <h4 className='text-gray-800 font-semibold text-sm mb-3 flex items-center gap-2'>
+                                <FaInfoCircle className='text-orange-500' /> Pro Tips
                             </h4>
-                            <div className='space-y-2 sm:space-y-3'>
+                            <div className='space-y-2.5'>
                                 {[
-                                    { icon: <FaStar className='text-yellow-400 text-xs sm:text-sm' />, text: 'Use a clear, high-quality shop image' },
-                                    { icon: <FaCheckCircle className='text-green-400 text-xs sm:text-sm' />, text: 'Add complete address details' },
-                                    { icon: <FaFire className='text-[#ff2d55] text-xs sm:text-sm' />, text: 'Keep shop name unique & catchy' },
-                                    { icon: <FaCrown className='text-[#ffd93d] text-xs sm:text-sm' />, text: 'Add multiple items to attract customers' }
+                                    { icon: <FaStar className='text-amber-400' />, text: 'Use a clear, high-quality shop image' },
+                                    { icon: <FaCheckCircle className='text-green-500' />, text: 'Add complete address details' },
+                                    { icon: <FaFire className='text-orange-500' />, text: 'Keep shop name unique & catchy' },
+                                    { icon: <FaCrown className='text-amber-500' />, text: 'Add multiple items to attract customers' }
                                 ].map((tip, idx) => (
-                                    <motion.div 
+                                    <div 
                                         key={idx}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: 0.3 + (idx * 0.1) }}
-                                        className='flex items-center gap-2 text-white/40 text-[10px] sm:text-xs p-1.5 sm:p-2 rounded-lg hover:bg-white/5 transition-all duration-300'
+                                        className='flex items-center gap-2.5 text-gray-600 text-xs font-medium p-2 rounded-lg hover:bg-gray-50 transition-all duration-300'
                                     >
-                                        <span className='text-sm sm:text-base'>{tip.icon}</span>
+                                        <span className='text-sm'>{tip.icon}</span>
                                         {tip.text}
-                                    </motion.div>
+                                    </div>
                                 ))}
                             </div>
                         </motion.div>
 
-                        {/* ✅ Features */}
+                        {/* Features */}
                         <motion.div 
-                            initial={{ opacity: 0, x: 40 }}
+                            initial={{ opacity: 0, x: 30 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.3 }}
-                            whileHover={{ y: -2 }}
-                            className='glass-premium p-4 sm:p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-white/[0.03] to-transparent'
+                            className='bg-white border-2 border-gray-200 p-5 rounded-2xl shadow-lg'
                         >
-                            <h4 className='text-white font-semibold text-xs sm:text-sm mb-3 sm:mb-4 flex items-center gap-2'>
-                                <FaRocket className='text-[#ff2d55] text-sm sm:text-base' /> Platform Features
+                            <h4 className='text-gray-800 font-semibold text-sm mb-3 flex items-center gap-2'>
+                                <FaRocket className='text-orange-500' /> Platform Features
                             </h4>
-                            <div className='grid grid-cols-3 gap-1.5 sm:gap-2'>
+                            <div className='grid grid-cols-3 gap-2'>
                                 {[
-                                    { icon: <FaShieldAlt className='text-[#ff6b35]' />, label: 'Secure' },
-                                    { icon: <FaRocket className='text-[#ff2d55]' />, label: 'Fast' },
-                                    { icon: <FaGem className='text-[#ffd93d]' />, label: 'Premium' },
-                                    { icon: <FaAward className='text-purple-400' />, label: 'Trusted' },
-                                    { icon: <FaHeart className='text-pink-400' />, label: 'Loved' },
-                                    { icon: <FaMagic className='text-indigo-400' />, label: 'Smart' }
+                                    { icon: <FaShieldAlt className='text-orange-500 text-lg' />, label: 'Secure' },
+                                    { icon: <FaRocket className='text-orange-500 text-lg' />, label: 'Fast' },
+                                    { icon: <FaGem className='text-amber-500 text-lg' />, label: 'Premium' },
+                                    { icon: <FaAward className='text-purple-500 text-lg' />, label: 'Trusted' },
+                                    { icon: <FaHeart className='text-pink-500 text-lg' />, label: 'Loved' },
+                                    { icon: <FaMagic className='text-indigo-500 text-lg' />, label: 'Smart' }
                                 ].map((item, idx) => (
-                                    <motion.div 
+                                    <div 
                                         key={idx}
-                                        whileHover={{ scale: 1.1, y: -2 }}
-                                        className='flex flex-col items-center gap-1 p-2 rounded-xl bg-white/5 border border-white/5 hover:border-[#ff2d55]/20 transition-all duration-300'
+                                        className='flex flex-col items-center gap-1 p-2 rounded-xl bg-gray-50 border border-gray-200'
                                     >
-                                        <span className='text-base sm:text-xl'>{item.icon}</span>
-                                        <span className='text-white/30 text-[6px] sm:text-[8px] uppercase tracking-wider'>{item.label}</span>
-                                    </motion.div>
+                                        <span className='text-xl'>{item.icon}</span>
+                                        <span className='text-gray-500 text-[8px] uppercase tracking-wider font-semibold'>{item.label}</span>
+                                    </div>
                                 ))}
                             </div>
                         </motion.div>
@@ -592,83 +509,40 @@ function CreateEditShop() {
                 </div>
             </div>
 
-            {/* ✅ Success Animation Overlay */}
+            {/* Success Animation */}
             <AnimatePresence>
                 {showSuccess && (
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className='fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 p-4'
+                        className='fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4'
                     >
                         <motion.div
                             initial={{ scale: 0, rotate: -180 }}
                             animate={{ scale: 1, rotate: 0 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                            className='text-center max-w-sm w-full'
+                            transition={{ type: "spring", stiffness: 300 }}
+                            className='text-center max-w-sm w-full bg-white rounded-3xl p-8 shadow-2xl border-2 border-green-200'
                         >
-                            <motion.div 
-                                className='w-20 h-20 sm:w-28 sm:h-28 mx-auto rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-2xl shadow-green-500/40'
-                                animate={{ scale: [1, 1.1, 1] }}
-                                transition={{ duration: 0.6, repeat: Infinity }}
-                            >
-                                <motion.div
-                                    animate={{ rotate: [0, 360] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                >
-                                    <FaCheck className='text-white text-3xl sm:text-5xl' />
-                                </motion.div>
-                            </motion.div>
-                            <motion.h3 
-                                className='text-white font-bold text-xl sm:text-2xl mt-4 sm:mt-6'
-                                animate={{ y: [0, -5, 0] }}
-                                transition={{ duration: 1, repeat: Infinity }}
-                            >
+                            <div className='w-20 h-20 mx-auto rounded-full bg-green-100 border-2 border-green-300 flex items-center justify-center'>
+                                <FaCheck className='text-green-500 text-4xl' />
+                            </div>
+                            <h3 className='text-gray-800 font-bold text-xl mt-4'>
                                 {isEditing ? 'Updated Successfully!' : 'Created Successfully!'}
-                            </motion.h3>
-                            <p className='text-white/40 text-xs sm:text-sm mt-2'>
+                            </h3>
+                            <p className='text-gray-500 text-sm mt-2'>
                                 {isEditing ? 'Shop updated successfully' : 'Shop created successfully'}
                             </p>
                             {!isEditing && (
-                                <motion.div 
-                                    className='mt-3 sm:mt-4 inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-yellow-500/20 border border-yellow-500/30'
-                                    animate={{ scale: [1, 1.02, 1] }}
-                                    transition={{ duration: 1.5, repeat: Infinity }}
-                                >
-                                    <FaClock className='text-yellow-400 text-xs sm:text-sm' />
-                                    <span className='text-yellow-400/80 text-[10px] sm:text-xs'>⏳ Pending admin approval</span>
-                                </motion.div>
+                                <div className='mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200'>
+                                    <FaClock className='text-amber-500 text-sm' />
+                                    <span className='text-amber-700 text-xs font-semibold'>⏳ Pending admin approval</span>
+                                </div>
                             )}
-                            <motion.div 
-                                className='mt-4 sm:mt-6 w-10 sm:w-12 h-1 mx-auto rounded-full bg-gradient-to-r from-[#ff2d55] to-[#ff6b35]'
-                                animate={{ width: ['20%', '80%', '20%'] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                            />
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            <style jsx>{`
-                .glass-premium {
-                    background: rgba(255, 255, 255, 0.03);
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                    border: 1px solid rgba(255, 255, 255, 0.06);
-                }
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.5; }
-                }
-                .animate-pulse {
-                    animation: pulse 2s ease-in-out infinite;
-                }
-                @keyframes float-3d {
-                    0%, 100% { transform: translate(0, 0) scale(1); }
-                    33% { transform: translate(40px, -30px) scale(1.1); }
-                    66% { transform: translate(-20px, 20px) scale(0.9); }
-                }
-            `}</style>
         </div>
     )
 }

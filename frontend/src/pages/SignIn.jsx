@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { 
     FaRegEye, FaRegEyeSlash, FaGoogle, FaArrowRight, 
-    FaTruck, FaStar, FaFire, FaLock, FaEnvelope, FaBolt, FaArrowLeft 
+    FaTruck, FaStar, FaFire, FaLock, FaEnvelope, FaBolt, FaArrowLeft,
+    FaShieldAlt, FaClock
 } from "react-icons/fa";
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { serverUrl } from '../App';
+// ✅ FIXED: serverUrl import
+import { serverUrl } from '../../config';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { ClipLoader } from "react-spinners"
@@ -30,19 +32,15 @@ function SignIn() {
         setIsVisible(true)
     }, [])
 
-        const handleSignIn = async () => {
+    const handleSignIn = async () => {
         setLoading(true)
         try {
             const result = await axios.post(`${serverUrl}/api/auth/signin`, {
                 email, password
             }, { withCredentials: true })
             
-            // ✅ Save user in session (tab-specific)
-            setSessionUser(result.data)  // ✅ ADD THIS
-            
-            // ✅ Also save in localStorage
+            setSessionUser(result.data)
             localStorage.setItem('userData', JSON.stringify(result.data))
-            
             dispatch(setUserData(result.data))
             setErr("")
             setLoading(false)
@@ -92,19 +90,21 @@ function SignIn() {
         }
     }
 
-  const handleGoogleAuth = async () => {
+    const handleGoogleAuth = async () => {
         const provider = new GoogleAuthProvider()
         const result = await signInWithPopup(auth, provider)
 
         try {
+            // ✅ FIXED: fullName and other fields added
             const { data } = await axios.post(`${serverUrl}/api/auth/google-auth`, {
-                email: result.user.email
+                fullName: result.user.displayName || "Google User",
+                email: result.user.email,
+                role: "user",
+                mobile: result.user.phoneNumber || "0000000000"
             }, { withCredentials: true })
             
-            // ✅ Save user in session
-            setSessionUser(data)  // ✅ ADD THIS
+            setSessionUser(data)
             localStorage.setItem('userData', JSON.stringify(data))
-            
             dispatch(setUserData(data))
 
             toast.success("Signed in successfully with Google!", {
@@ -123,135 +123,153 @@ function SignIn() {
             });
         }
     }
-
     return (
-        <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
-            {/* Background Glow */}
-            <div className="fixed inset-0 pointer-events-none">
-                <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-[#ff2d55]/8 rounded-full blur-3xl animate-pulse" />
-                <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-[#ff6b35]/10 rounded-full blur-3xl animate-pulse animation-delay-200" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#ff2d55]/5 rounded-full blur-3xl" />
+        <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4 relative overflow-hidden">
+            {/* Background glows */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-0 right-0 w-[60%] h-full bg-gradient-to-l from-[#ff6b35]/8 via-transparent to-transparent" />
+                <div className="absolute -bottom-20 -left-20 w-[500px] h-[500px] bg-[#ff2d55]/5 rounded-full blur-3xl" />
+                <div className="absolute top-1/3 right-1/4 w-[350px] h-[350px] bg-[#ff6b35]/4 rounded-full blur-3xl" />
             </div>
 
-            {/* Back Button */}
-            <button 
-                onClick={() => navigate('/')}
-                className="fixed top-6 left-6 z-50 glass-premium px-4 py-2.5 rounded-full text-white/70 hover:text-white transition-all duration-300 flex items-center gap-2 text-sm hover:scale-105 hover:shadow-lg hover:shadow-[#ff2d55]/10 border border-white/5"
-            >
-                <FaArrowLeft size={14} />
-                Back to Home
-            </button>
+            {/* Top bar */}
+            <div className="absolute top-5 left-6 right-6 z-50 flex items-center justify-between">
+                <div className="text-2xl font-bold text-white tracking-tight">
+                    cravely<span className="text-[#ff6b35]">.</span>
+                </div>
+
+                <button 
+                    onClick={() => navigate("/")}
+                    className="flex items-center gap-2 text-white/70 hover:text-white transition-colors group"
+                >
+                    <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 group-hover:border-white/20 transition-all">
+                        <FaArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+                    </div>
+                    <span className="text-sm hidden sm:block group-hover:underline decoration-white/30 underline-offset-4">Back to Home</span>
+                </button>
+
+                
+                <button 
+                    onClick={() => navigate("/signup")}
+                    className="text-sm text-white/70 hover:text-white transition-colors flex items-center gap-1.5 border border-white/10 rounded-full px-4 py-1.5 hover:border-white/20"
+                >
+                    Don't have an account? <span className="text-[#ff6b35] font-medium">Sign Up</span>
+                </button>
+
+                
+            </div>
+
+            
 
             {/* Main Container */}
-            <div className={`w-full max-w-6xl min-h-[650px] rounded-3xl overflow-hidden shadow-2xl shadow-[#ff2d55]/10 flex flex-col md:flex-row relative transition-all duration-700 ease-out ${
-                isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-12 scale-95'
+            <div className={`w-full max-w-6xl min-h-[640px] flex flex-col lg:flex-row relative transition-all duration-700 ease-out ${
+                isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}>
                 
-                {/* Left Side - Image */}
-                <div className="hidden md:flex md:w-1/2 relative flex-col justify-between min-h-[650px] group overflow-hidden">
-                    <div className="absolute inset-0 transition-transform duration-700 ease-in-out group-hover:scale-105">
+                {/* ==================== LEFT SIDE ==================== */}
+                <div className="hidden lg:flex lg:w-[55%] relative flex-col justify-center py-12 pr-8 overflow-hidden">
+                    
+                    {/* Burger image BEHIND the text */}
+                    <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
                         <img 
-                            src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=800&fit=crop" 
-                            alt="Delicious Food" 
-                            className="w-full h-full object-cover object-center"
+                            src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=700&h=900&fit=crop" 
+                            alt="Burger" 
+                            className="w-[420px] h-[520px] object-contain opacity-90 drop-shadow-2xl -mr-8"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/35 to-black/60" />
+                        {/* Soft gradient so text remains readable */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0f] via-[#0a0a0f]/85 to-transparent" />
                     </div>
 
-                   
+                    {/* Content (on top of image) */}
+                    <div className="relative z-10 max-w-md">
+                        {/* Top badge */}
+                        <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3.5 py-1.5 text-sm text-white/80 w-fit mb-6 backdrop-blur-sm">
+                            <FaTruck className="text-[#ff6b35]" size={13} />
+                            <span>Delicious food, delivered to <span className="text-[#ff6b35] font-medium">you</span></span>
+                        </div>
 
-                    {/* Floating Glass Badges */}
-                    <div className="absolute top-4 left-6 right-6 flex justify-between z-10">
-                        <div className="glass-premium px-4 py-2 rounded-xl flex items-center gap-2 text-white text-sm border border-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#ff6b35]/20 animate-float">
-                            <FaTruck className="text-[#ff6b35]" />
-                            <span>30 Min</span>
-                        </div>
-                        <div className="glass-premium px-4 py-2 rounded-xl flex items-center gap-2 text-white text-sm border border-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#ff6b35]/20 animate-float animation-delay-200">
-                            <FaStar className="text-yellow-400" />
-                            <span>4.9 ★</span>
-                        </div>
-                        <div className="glass-premium px-4 py-2 rounded-xl flex items-center gap-2 text-white text-sm border border-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#ff6b35]/20 animate-float animation-delay-400">
-                            <FaFire className="text-[#ff2d55]" />
-                            <span>5K+ Orders</span>
-                        </div>
-                    </div>
+                        {/* Headline */}
+                        <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-4">
+                            Welcome back,<br />
+                            <span className="text-[#ff6b35]">Foodie!</span>
+                        </h1>
+                        <p className="text-white/60 text-[15px] leading-relaxed mb-8 max-w-sm">
+                            Sign in to continue ordering your favorite meals from top restaurants, delivered fast and fresh.
+                        </p>
 
-                    {/* ✅ Rating Badge - Niche */}
-                    <div className="absolute bottom-3 left-6 right-6 z-10">
-                        <div className="glass-premium p-4 rounded-2xl border border-white/10 max-w-xs mx-auto transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#ff6b35]/20">
-                            <div className="flex items-center justify-center gap-3">
-                                <div className="flex">
-                                    {[1,2,3,4,5].map((i) => (
-                                        <FaStar key={i} className="text-yellow-400 text-sm" />
-                                    ))}
+                        {/* Features */}
+                        <div className="space-y-3.5 mb-8">
+                            <div className="flex items-start gap-3">
+                                <div className="w-8 h-8 rounded-full bg-[#ff6b35]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <FaStar className="text-[#ff6b35]" size={12} />
                                 </div>
-                                <span className="text-white font-semibold text-sm">4.9 Rating</span>
-                                <span className="text-white/40 text-xs">|</span>
-                                <span className="text-white/60 text-sm">5,000+ Trusted</span>
+                                <div>
+                                    <p className="text-white font-medium text-sm">Exclusive Offers</p>
+                                    <p className="text-white/50 text-xs">Get access to member-only deals</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="w-8 h-8 rounded-full bg-[#ff6b35]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <FaClock className="text-[#ff6b35]" size={12} />
+                                </div>
+                                <div>
+                                    <p className="text-white font-medium text-sm">Fast Delivery</p>
+                                    <p className="text-white/50 text-xs">Quick and on-time delivery</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="w-8 h-8 rounded-full bg-[#ff6b35]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <FaShieldAlt className="text-[#ff6b35]" size={12} />
+                                </div>
+                                <div>
+                                    <p className="text-white font-medium text-sm">Safe & Secure</p>
+                                    <p className="text-white/50 text-xs">Your data and payments are protected</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Content */}
-                    <div className="relative z-10 p-10 top-7 flex flex-col justify-end min-h-[650px] pb-36">
-                        <div className="absolute top-12 left-10">
-                            <h1 className="text-5xl font-bold text-white mb-0.5">Cravely</h1>
-                            <p className="text-gradient-hero text-lg tracking-wider uppercase">Food Delivery</p>
-                        </div>
-                        
-                        <div className="mb-4">
-                            <h2 className="text-3xl font-bold text-white mb-3 leading-tight">
-                                Welcome Back! 👋
-                            </h2>
-                            <p className="text-white/70 text-base leading-relaxed max-w-xs">
-                                Sign in to continue your food journey with Cravely.
-                            </p>
-                            <div className="mt-5 flex gap-3 flex-wrap">
-                                <div className="glass-premium px-3.5 py-1.5 rounded-xl text-white text-xs font-medium border border-white/10">
-                                    🚀 Fast Delivery
-                                </div>
-                                <div className="glass-premium px-3.5 py-1.5 rounded-xl text-white text-xs font-medium border border-white/10">
-                                    🍕 Premium Quality
-                                </div>
+                        {/* 50+ Restaurants card */}
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex items-center gap-3 max-w-xs backdrop-blur-sm hover:bg-white/8 transition-colors cursor-pointer group">
+                            <div className="flex -space-x-2">
+                                <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?w=60&h=60&fit=crop" alt="" className="w-9 h-9 rounded-lg object-cover border-2 border-[#0a0a0f]" />
+                                <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=60&h=60&fit=crop" alt="" className="w-9 h-9 rounded-lg object-cover border-2 border-[#0a0a0f]" />
+                                <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60&h=60&fit=crop" alt="" className="w-9 h-9 rounded-lg object-cover border-2 border-[#0a0a0f]" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-white font-semibold text-sm">50+ Top Restaurants</p>
+                                <p className="text-white/50 text-[11px]">From local favorites to gourmet meals</p>
+                            </div>
+                            <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-[#ff6b35]/20 transition-colors">
+                                <FaArrowRight className="text-white/70 group-hover:text-[#ff6b35]" size={11} />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Right Side - Form */}
-                <div className="w-full md:w-1/2 glass-form p-6 md:p-10 overflow-y-auto max-h-[95vh] md:max-h-none">
-                    <div className="max-w-md mx-auto">
-                        {/* Back Button - Inside Form */}
-                        <div className="flex items-center justify-between mb-4">
-                            <button 
-                                onClick={() => navigate('/')}
-                                className="glass-premium px-3.5 py-2 rounded-full text-white/60 hover:text-white transition-all duration-300 flex items-center gap-2 text-xs hover:scale-105 border border-white/5"
-                            >
-                                <FaArrowLeft size={12} />
-                                Back
-                            </button>
-                            <span className="text-[10px] text-white/20">Secure 🔒</span>
+                {/* ==================== RIGHT SIDE - FORM ==================== */}
+                <div className="w-full lg:w-[45%] flex items-center justify-center py-8">
+                    <div className="w-full max-w-[380px] bg-[#12121a]/95 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl shadow-black/40">
+                        
+                        {/* Logo icon */}
+                        <div className="flex justify-center mb-4">
+                            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#ff6b35] to-[#ff2d55] flex items-center justify-center shadow-lg shadow-[#ff6b35]/30">
+                                <span className="text-white font-bold text-lg">C</span>
+                            </div>
                         </div>
 
-                        {/* Mobile Logo */}
-                        <div className="md:hidden text-center mb-4">
-                            <h1 className="text-2xl font-bold text-gradient">Cravely</h1>
-                            <p className="text-white/40 text-sm">Welcome back</p>
-                        </div>
-
-                        <h2 className="text-2xl font-bold text-white mb-1">Sign In</h2>
-                        <p className="text-white/40 text-sm mb-6">
-                            Welcome back to <span className="text-gradient font-semibold">Cravely</span>!
+                        <h2 className="text-xl font-bold text-white text-center mb-0.5">Sign In</h2>
+                        <p className="text-white/50 text-xs text-center mb-5">
+                            Welcome back to <span className="text-[#ff6b35]">Cravely</span>
                         </p>
 
-                        <form onSubmit={(e) => { e.preventDefault(); handleSignIn(); }} className="space-y-4">
+                        <form onSubmit={(e) => { e.preventDefault(); handleSignIn(); }} className="space-y-3.5">
                             {/* Email */}
-                            <div className="relative group">
-                                <MdMail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[#ff6b35] transition-colors duration-300" size={18} />
+                            <div className="relative">
+                                <MdMail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" size={15} />
                                 <input
                                     type="email"
                                     placeholder="Email Address"
-                                    className="w-full glass-input pl-12 pr-4 py-3.5 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#ff6b35]/50 transition-all duration-300 text-sm"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-3.5 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-[#ff6b35]/50 focus:ring-1 focus:ring-[#ff6b35]/30 transition-all text-sm"
                                     onChange={(e) => setEmail(e.target.value)}
                                     value={email}
                                     required
@@ -259,28 +277,29 @@ function SignIn() {
                             </div>
 
                             {/* Password */}
-                            <div className="relative group">
-                                <RiLockPasswordFill className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[#ff6b35] transition-colors duration-300" size={18} />
+                            <div className="relative">
+                                <RiLockPasswordFill className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" size={15} />
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     placeholder="Password"
-                                    className="w-full glass-input pl-12 pr-12 py-3.5 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#ff6b35]/50 transition-all duration-300 text-sm"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-10 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-[#ff6b35]/50 focus:ring-1 focus:ring-[#ff6b35]/30 transition-all text-sm"
                                     onChange={(e) => setPassword(e.target.value)}
                                     value={password}
                                     required
                                 />
                                 <button
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-all duration-300 hover:scale-110"
+                                    type="button"
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
                                     onClick={() => setshowPassword((prev) => !prev)}
                                 >
-                                    {!showPassword ? <FaRegEye size={18} /> : <FaRegEyeSlash size={18} />}
+                                    {!showPassword ? <FaRegEye size={15} /> : <FaRegEyeSlash size={15} />}
                                 </button>
                             </div>
 
-                            {/* Forgot Password & OTP Login */}
+                            {/* Forgot Password & OTP */}
                             <div className="flex items-center justify-between">
                                 <span 
-                                    className="text-[#ff2d55] text-xs cursor-pointer hover:underline"
+                                    className="text-[#ff6b35] text-xs cursor-pointer hover:underline"
                                     onClick={() => navigate("/forgot-password")}
                                 >
                                     Forgot Password?
@@ -293,147 +312,66 @@ function SignIn() {
                                 </span>
                             </div>
 
-                            {err && <p className="text-red-400 text-xs text-center">{err}</p>}
+                            {err && <p className="text-red-400 text-[11px] text-center">{err}</p>}
 
                             {/* Sign In Button */}
                             <button
                                 type="submit"
-                                className="w-full btn-neon py-3.5 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold group transition-all duration-300"
+                                className="w-full bg-gradient-to-r from-[#ff6b35] to-[#ff2d55] hover:from-[#ff7a45] hover:to-[#ff3d65] text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-300 shadow-lg shadow-[#ff6b35]/25 hover:shadow-[#ff6b35]/40 hover:scale-[1.01] disabled:opacity-70 disabled:cursor-not-allowed"
                                 disabled={loading}
                             >
                                 {loading ? (
                                     <>
-                                        <ClipLoader size={18} color="white" />
+                                        <ClipLoader size={16} color="white" />
                                         <span>Signing in...</span>
                                     </>
                                 ) : (
                                     <>
                                         Sign In
-                                        <FaArrowRight size={14} className="group-hover:translate-x-1.5 transition-transform duration-300" />
+                                        <FaArrowRight size={12} />
                                     </>
                                 )}
                             </button>
 
-                            {/* Trust Section */}
-                            <div className="flex justify-center gap-4 text-white/30 text-xs py-1">
-                                <span className="flex items-center gap-1"><FaLock size={10} /> Secure</span>
-                                <span className="flex items-center gap-1"><FaEnvelope size={10} /> Verified</span>
-                                <span className="flex items-center gap-1"><FaBolt size={10} /> Instant</span>
-                            </div>
-
                             {/* Divider */}
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 py-0.5">
                                 <div className="flex-1 h-px bg-white/10" />
-                                <span className="text-white/30 text-xs">or continue with</span>
+                                <span className="text-white/40 text-[11px]">or continue with</span>
                                 <div className="flex-1 h-px bg-white/10" />
                             </div>
 
-                            {/* Google */}
-                            <button
-                                type="button"
-                                className="w-full glass py-3.5 rounded-xl text-white/70 text-sm font-medium hover:bg-white/8 transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] hover:border-white/20 border border-white/5"
-                                onClick={handleGoogleAuth}
-                            >
-                                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
-                                Google
-                            </button>
+                            {/* Social */}
+                            <div className="grid gap-2.5">
+                                <button
+                                    type="button"
+                                    onClick={handleGoogleAuth}
+                                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/80 text-xs font-medium hover:bg-white/10 hover:border-white/20 transition-all"
+                                >
+                                    <img src="https://www.google.com/favicon.ico" alt="Google" className="w-3.5 h-3.5" />
+                                    Google
+                                </button>
+                              
+                            </div>
 
-                            {/* Admin Login Button */}
-                            <div className="text-center mt-2">
+                            {/* Admin Login */}
+                            <div className="text-center pt-1">
                                 <span 
-                                    className="text-white/30 text-xs cursor-pointer hover:text-white/50 transition"
+                                    className="text-white/30 text-[11px] cursor-pointer hover:text-white/50 transition"
                                     onClick={() => navigate('/admin/login')}
                                 >
                                     👑 Admin Login
                                 </span>
                             </div>
 
-                            <p className="text-center text-white/40 text-xs">
-                                Don't have an account?{' '}
-                                <span className="text-gradient cursor-pointer hover:opacity-80 transition" onClick={() => navigate("/signup")}>
-                                    Sign Up
-                                </span>
+                            {/* Privacy */}
+                            <p className="text-center text-white/30 text-[10px] flex items-center justify-center gap-1.5">
+                                <FaLock size={9} />
+                                We never share your personal information
                             </p>
                         </form>
                     </div>
                 </div>
             </div>
-
-            <style jsx>{`
-                @keyframes float {
-                    0%, 100% { transform: translateY(0px); }
-                    50% { transform: translateY(-8px); }
-                }
-                .animate-float {
-                    animation: float 3s ease-in-out infinite;
-                }
-                .animation-delay-200 { animation-delay: 0.2s; }
-                .animation-delay-400 { animation-delay: 0.4s; }
-
-                @keyframes pulse {
-                    0%, 100% { opacity: 0.3; }
-                    50% { opacity: 0.6; }
-                }
-                .animate-pulse {
-                    animation: pulse 4s ease-in-out infinite;
-                }
-
-                .glass-form {
-                    background: rgba(255, 255, 255, 0.04);
-                    backdrop-filter: blur(18px);
-                    -webkit-backdrop-filter: blur(18px);
-                    border-left: 1px solid rgba(255, 255, 255, 0.06);
-                    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-                }
-
-                .glass-premium {
-                    background: rgba(255, 255, 255, 0.08);
-                    backdrop-filter: blur(12px);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
-                }
-
-                .glass-input {
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.06);
-                    transition: all 0.3s ease;
-                }
-                .glass-input:focus {
-                    border-color: rgba(255, 107, 53, 0.3);
-                    box-shadow: 0 0 25px rgba(255, 107, 53, 0.15);
-                }
-
-                .glass {
-                    background: rgba(255, 255, 255, 0.04);
-                    backdrop-filter: blur(12px);
-                    border: 1px solid rgba(255, 255, 255, 0.06);
-                }
-
-                .btn-neon {
-                    background: linear-gradient(135deg, #ff2d55, #ff6b35);
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    box-shadow: 0 0 30px rgba(255, 45, 85, 0.15);
-                }
-                .btn-neon:hover {
-                    transform: translateY(-2px) scale(1.01);
-                    box-shadow: 0 0 50px rgba(255, 45, 85, 0.25);
-                }
-
-                .text-gradient {
-                    background: linear-gradient(135deg, #ff2d55, #ff6b35);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                }
-                .text-gradient-hero {
-                    background: linear-gradient(135deg, #ff6b35, #ffd93d);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                }
-            `}</style>
         </div>
     )
 }

@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import axios from 'axios'
-import { serverUrl } from '../App'
+import { serverUrl } from '../../config';
 import { 
     FaEdit, FaTrash, FaStar, FaLeaf, FaDrumstickBite,
     FaClock, FaTag, FaUtensils, FaFire, FaEye,
@@ -29,15 +29,13 @@ function OwnerItemCard({ data, index = 0, onDelete }) {
     const reviews = data.rating?.count || 0
     const itemName = data.name || 'Unnamed Item'
     const itemPrice = data.price || 0
-    const itemImage = data.image || 'https://via.placeholder.com/400x300/1a1a2e/666?text=No+Image'
+    const itemImage = data.image || 'https://via.placeholder.com/400x300/f0ebe5/cbb8a8?text=No+Image'
     const itemCategory = data.category || 'Other'
     const itemId = data._id
     const shopId = data.shop?._id || data.shop
     
-    // ✅ FIXED: Remove isInStock and deliveryTime - Backend mein nahi hai
-    // ✅ Default values for UI
-    const isInStock = true  // Always show in stock
-    const deliveryTime = '30-40'  // Default delivery time
+    const isInStock = true
+    const deliveryTime = '30-40'
     
     const isPopular = reviews > 50
 
@@ -62,307 +60,237 @@ function OwnerItemCard({ data, index = 0, onDelete }) {
 
     const getCategoryColor = () => {
         const colors = {
-            'Pizza': 'from-red-500 to-orange-500',
-            'Burger': 'from-amber-500 to-yellow-500',
-            'Snacks': 'from-green-500 to-emerald-500',
-            'Main Course': 'from-blue-500 to-indigo-500',
-            'Desserts': 'from-pink-500 to-rose-500',
-            'South Indian': 'from-yellow-500 to-amber-500',
-            'North Indian': 'from-orange-500 to-red-500',
-            'Chinese': 'from-red-500 to-pink-500',
-            'Fast Food': 'from-yellow-500 to-orange-500',
-            'Others': 'from-purple-500 to-violet-500'
+            'Pizza': 'bg-red-500',
+            'Burger': 'bg-amber-500',
+            'Snacks': 'bg-green-500',
+            'Main Course': 'bg-blue-500',
+            'Desserts': 'bg-pink-500',
+            'South Indian': 'bg-yellow-500',
+            'North Indian': 'bg-orange-500',
+            'Chinese': 'bg-red-500',
+            'Fast Food': 'bg-orange-500',
+            'Others': 'bg-purple-500'
         }
-        return colors[itemCategory] || 'from-[#ff2d55] to-[#ff6b35]'
+        return colors[itemCategory] || 'bg-orange-500'
     }
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.85, rotate: -2 }}
-            animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05, type: "spring", stiffness: 180, damping: 20 }}
-            whileHover={{ y: -10, scale: 1.03 }}
+            whileHover={{ y: -6 }}
             className='relative group'
         >
-            {/* ✅ 3D Floating Shadow */}
-            <motion.div 
-                className='absolute inset-0 rounded-2xl bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] opacity-0 group-hover:opacity-30 blur-2xl transition-all duration-500'
-                animate={{ scale: isHovered ? 1.05 : 0.95 }}
-            />
-
             <div 
-                className='relative glass-premium-ultra rounded-2xl overflow-hidden border border-white/5 
-                    hover:border-[#ff2d55]/50 transition-all duration-500 
-                    hover:shadow-2xl hover:shadow-[#ff2d55]/30 
-                    bg-gradient-to-br from-[#1a1a2e] to-[#0d0d1a]'
+                className='relative bg-white border-2 border-gray-200 rounded-2xl overflow-hidden hover:border-orange-300 hover:shadow-md transition-all duration-300'
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                
-                {/* ✅ Animated Gradient Border */}
-                <motion.div 
-                    className='absolute inset-0 rounded-2xl p-[2px] bg-gradient-to-r from-[#ff2d55] via-[#ff6b35] to-[#ffd93d] opacity-0 group-hover:opacity-100 transition-opacity duration-500'
-                    animate={{ 
-                        background: isHovered ? 'linear-gradient(135deg, #ff2d55, #ff6b35, #ffd93d, #ff2d55)' : 'linear-gradient(135deg, #ff2d55, #ff6b35, #ffd93d, #ff2d55)',
-                        backgroundSize: isHovered ? '300% 300%' : '100% 100%',
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                />
+                {/* ✅ Category Color Strip */}
+                <div className={`h-1 w-full ${getCategoryColor()}`} />
 
-                {/* ✅ Inner Content */}
-                <div className='relative bg-gradient-to-br from-[#1a1a2e] to-[#0d0d1a] rounded-2xl overflow-hidden'>
-                    
-                    {/* ✅ Category Color Strip with Animation */}
-                    <motion.div 
-                        className={`h-1 w-full bg-gradient-to-r ${getCategoryColor()}`}
-                        animate={{ 
-                            backgroundPosition: ['0% 0%', '100% 0%', '0% 0%'],
+                {/* ✅ Image Section */}
+                <div className='relative h-[200px] overflow-hidden bg-gray-100'>
+                    <img 
+                        src={itemImage}
+                        alt={itemName}
+                        className='w-full h-full object-cover group-hover:scale-105 transition-all duration-500'
+                        loading="lazy"
+                        onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/400x300/f0ebe5/cbb8a8?text=No+Image'
                         }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                        style={{ backgroundSize: '200% 100%' }}
                     />
+                    
+                    <div className='absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-transparent' />
 
-                    {/* ✅ Image Section - Premium */}
-                    <div className='relative h-[230px] overflow-hidden'>
-                        <img 
-                            src={itemImage}
-                            alt={itemName}
-                            className='w-full h-full object-cover group-hover:scale-110 transition-all duration-700'
-                            loading="lazy"
-                            onError={(e) => {
-                                e.target.src = 'https://via.placeholder.com/400x300/1a1a2e/666?text=No+Image'
-                            }}
-                        />
-                        
-                        {/* ✅ Premium Overlay */}
-                        <div className='absolute inset-0 bg-gradient-to-t from-[#1a1a2e] via-transparent to-transparent opacity-70' />
-                        <div className='absolute inset-0 bg-[url("data:image/svg+xml,%3Csvg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="%23ffffff" fill-opacity="0.04"%3E%3Cpath d="M20 0v40M0 20h40"/%3E%3C/g%3E%3C/svg%3E")] opacity-50' />
+                    {/* ✅ Food Type Badge */}
+                    <motion.div 
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: 0.15 }}
+                        className={`absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white shadow-md border-2 ${
+                            isVeg ? 'border-green-200' : 'border-red-200'
+                        }`}
+                    >
+                        {isVeg ? (
+                            <>
+                                <FaLeaf className='text-green-500 text-[10px]' />
+                                <span className='text-[7px] text-green-600 font-bold uppercase'>Veg</span>
+                            </>
+                        ) : (
+                            <>
+                                <FaDrumstickBite className='text-red-500 text-[10px]' />
+                                <span className='text-[7px] text-red-600 font-bold uppercase'>Non-Veg</span>
+                            </>
+                        )}
+                    </motion.div>
 
-                        {/* ✅ Glow Ring */}
+                    {/* ✅ Rating Badge */}
+                    <motion.div 
+                        initial={{ x: 20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className='absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white shadow-md border border-gray-200'
+                    >
+                        <FaStar className='text-amber-400 text-[10px]' />
+                        <span className='text-gray-800 font-bold text-xs'>{rating.toFixed(1)}</span>
+                        <span className='text-gray-400 text-[8px]'>({reviews})</span>
+                    </motion.div>
+
+                    {/* ✅ Price Tag */}
+                    <motion.div 
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                        className='absolute bottom-3 left-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-white shadow-md border border-gray-200'
+                    >
+                        <FaTag className='text-orange-500 text-[10px]' />
+                        <span className='text-gray-800 font-bold text-base'>₹{itemPrice}</span>
+                    </motion.div>
+
+                    {/* ✅ Popular Badge */}
+                    {isPopular && (
                         <motion.div 
-                            className='absolute inset-0 rounded-full bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] opacity-0 group-hover:opacity-20 blur-2xl transition-all duration-500'
-                            animate={{ scale: isHovered ? 1.2 : 1 }}
-                        />
-
-                        {/* ✅ Food Type Badge - Premium */}
-                        <motion.div 
-                            initial={{ x: -60, opacity: 0, rotate: -10 }}
-                            animate={{ x: 0, opacity: 1, rotate: 0 }}
-                            transition={{ delay: 0.15, type: "spring", stiffness: 200 }}
-                            className={`absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-2xl border ${
-                                isVeg 
-                                    ? 'bg-green-500/40 border-green-400/50 shadow-lg shadow-green-500/30' 
-                                    : 'bg-red-500/40 border-red-400/50 shadow-lg shadow-red-500/30'
-                            }`}
-                        >
-                            {isVeg ? (
-                                <>
-                                    <FaLeaf className='text-green-300 text-sm animate-pulse' />
-                                    <span className='text-[8px] text-green-200 font-bold uppercase tracking-wider'>Veg</span>
-                                </>
-                            ) : (
-                                <>
-                                    <FaDrumstickBite className='text-red-300 text-sm animate-pulse' />
-                                    <span className='text-[8px] text-red-200 font-bold uppercase tracking-wider'>Non-Veg</span>
-                                </>
-                            )}
-                        </motion.div>
-
-                        {/* ✅ Rating Badge - Premium */}
-                        <motion.div 
-                            initial={{ x: 60, opacity: 0, rotate: 10 }}
-                            animate={{ x: 0, opacity: 1, rotate: 0 }}
-                            transition={{ delay: 0.25, type: "spring", stiffness: 200 }}
-                            className='absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-2xl border border-white/10 shadow-lg'
-                        >
-                            <FaStar className='text-yellow-400 text-[10px] animate-pulse' />
-                            <span className='text-white font-bold text-sm'>{rating.toFixed(1)}</span>
-                            <span className='text-white/30 text-[8px]'>({reviews})</span>
-                        </motion.div>
-
-                        {/* ✅ Price Tag - Premium */}
-                        <motion.div 
-                            initial={{ y: 20, opacity: 0 }}
+                            initial={{ y: 10, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.35 }}
-                            className='absolute bottom-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-2xl border border-white/10 shadow-lg'
+                            className='absolute bottom-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 border-2 border-orange-200 shadow-sm'
                         >
-                            <FaTag className='text-[#ff6b35] text-[10px] animate-pulse' />
-                            <span className='text-white font-bold text-lg'>₹{itemPrice}</span>
+                            <FaFire className='text-orange-500 text-[9px] animate-pulse' />
+                            <span className='text-orange-600 text-[6px] font-bold uppercase'>Popular</span>
                         </motion.div>
+                    )}
+                </div>
 
-                        {/* ✅ Popular Badge - Premium */}
-                        {isPopular && (
-                            <motion.div 
-                                initial={{ y: 20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ delay: 0.45 }}
-                                className='absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ff2d55]/40 backdrop-blur-2xl border border-[#ff2d55]/50 shadow-lg shadow-[#ff2d55]/30'
+                {/* ✅ Content Section */}
+                <div className='p-4 space-y-3'>
+                    
+                    {/* ✅ Name & Category */}
+                    <div className='flex items-start justify-between gap-2'>
+                        <div>
+                            <h3 className='text-gray-900 font-bold text-base truncate'>
+                                {itemName}
+                            </h3>
+                            <div className='flex items-center gap-2 mt-0.5 flex-wrap'>
+                                <span className='w-1.5 h-1.5 rounded-full bg-orange-500' />
+                                <p className='text-gray-500 text-xs font-medium'>{itemCategory}</p>
+                                <span className='text-[8px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200 flex items-center gap-1 font-medium'>
+                                    <span className='w-1 h-1 bg-green-500 rounded-full animate-pulse' /> In Stock
+                                </span>
+                            </div>
+                        </div>
+                        <div className='flex items-center gap-1'>
+                            <button 
+                                className={`p-1.5 rounded-lg transition-all duration-300 ${isLiked ? 'text-red-500' : 'text-gray-300 hover:text-gray-500'}`}
+                                onClick={() => setIsLiked(!isLiked)}
                             >
-                                <FaFire className='text-[#ff2d55] text-[10px] animate-pulse' />
-                                <span className='text-[#ff2d55] text-[8px] font-bold uppercase tracking-wider'>🔥 Popular</span>
-                            </motion.div>
+                                <FaHeart size={14} className={isLiked ? 'fill-red-500' : ''} />
+                            </button>
+                            <button 
+                                className={`p-1.5 rounded-lg transition-all duration-300 ${isBookmarked ? 'text-amber-500' : 'text-gray-300 hover:text-gray-500'}`}
+                                onClick={() => setIsBookmarked(!isBookmarked)}
+                            >
+                                <FaBookmark size={14} className={isBookmarked ? 'fill-amber-500' : ''} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ✅ Stats Row */}
+                    <div className='grid grid-cols-3 gap-2'>
+                        <div className='flex items-center gap-1.5 p-1.5 rounded-lg bg-gray-50 border border-gray-200'>
+                            <FaClock size={11} className='text-orange-500' />
+                            <span className='text-gray-600 text-[10px] font-medium'>{deliveryTime}m</span>
+                        </div>
+                        <div className='flex items-center gap-1.5 p-1.5 rounded-lg bg-gray-50 border border-gray-200'>
+                            <FaUtensils size={11} className='text-gray-400' />
+                            <span className='text-gray-600 text-[10px] font-medium'>{reviews} reviews</span>
+                        </div>
+                        <div className='flex items-center gap-1.5 p-1.5 rounded-lg bg-gray-50 border border-gray-200'>
+                            <FaShoppingBag size={11} className='text-green-500' />
+                            <span className='text-gray-600 text-[10px] font-medium'>Available</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ✅ Action Buttons */}
+                <div className='px-4 pb-4 pt-2 border-t border-gray-200 flex items-center gap-2'>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.95 }}
+                        className='flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium shadow-sm shadow-orange-200 transition-all duration-300 flex items-center justify-center gap-2 group'
+                        onClick={() => navigate(`/edit-item/${itemId}`)}
+                    >
+                        <FaEdit size={14} /> 
+                        <span className='hidden sm:inline'>Edit</span>
+                    </motion.button>
+
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
+                            showDeleteConfirm 
+                                ? 'bg-red-500 text-white shadow-sm shadow-red-200'
+                                : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 border-2 border-transparent hover:border-red-200'
+                        }`}
+                        onClick={() => {
+                            if (showDeleteConfirm) {
+                                handleDelete()
+                            } else {
+                                setShowDeleteConfirm(true)
+                                setTimeout(() => setShowDeleteConfirm(false), 3000)
+                            }
+                        }}
+                    >
+                        {showDeleteConfirm ? (
+                            <>
+                                <span>⚠️ Confirm</span>
+                            </>
+                        ) : (
+                            <>
+                                <FaTrash size={14} /> 
+                                <span className='hidden sm:inline'>Delete</span>
+                            </>
                         )}
-                    </div>
-
-                    {/* ✅ Content Section - Premium */}
-                    <div className='p-5 space-y-3'>
-                        
-                        {/* ✅ Name & Category */}
-                        <div className='flex items-start justify-between gap-2'>
-                            <div>
-                                <motion.h3 
-                                    className='text-white font-bold text-lg truncate group-hover:text-[#ff6b35] transition-colors duration-300'
-                                    whileHover={{ x: 3 }}
-                                >
-                                    {itemName}
-                                </motion.h3>
-                                <div className='flex items-center gap-2 mt-0.5 flex-wrap'>
-                                    <span className='w-1.5 h-1.5 rounded-full bg-[#ff6b35]' />
-                                    <p className='text-white/40 text-xs'>{itemCategory}</p>
-                                    {/* ✅ FIXED: Always show in stock */}
-                                    <span className='text-[8px] text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full border border-green-500/20 flex items-center gap-1'>
-                                        <span className='w-1 h-1 bg-green-400 rounded-full animate-pulse' /> In Stock
-                                    </span>
-                                </div>
-                            </div>
-                            <div className='flex items-center gap-1'>
-                                <motion.button 
-                                    whileHover={{ scale: 1.2, rotate: 10 }}
-                                    whileTap={{ scale: 0.8 }}
-                                    className={`p-1.5 rounded-lg transition-all duration-300 ${isLiked ? 'text-[#ff2d55]' : 'text-white/20 hover:text-white/50'}`}
-                                    onClick={() => setIsLiked(!isLiked)}
-                                >
-                                    <FaHeart size={14} className={isLiked ? 'fill-[#ff2d55]' : ''} />
-                                </motion.button>
-                                <motion.button 
-                                    whileHover={{ scale: 1.2, rotate: -10 }}
-                                    whileTap={{ scale: 0.8 }}
-                                    className={`p-1.5 rounded-lg transition-all duration-300 ${isBookmarked ? 'text-[#ffd93d]' : 'text-white/20 hover:text-white/50'}`}
-                                    onClick={() => setIsBookmarked(!isBookmarked)}
-                                >
-                                    <FaBookmark size={14} className={isBookmarked ? 'fill-[#ffd93d]' : ''} />
-                                </motion.button>
-                            </div>
-                        </div>
-
-                        {/* ✅ Stats Row - Premium */}
-                        <div className='grid grid-cols-3 gap-2'>
-                            {[
-                                { icon: <FaClock size={11} className='text-[#ff6b35]' />, label: deliveryTime + 'm', color: 'border-[#ff6b35]/20' },
-                                { icon: <FaUtensils size={11} className='text-white/30' />, label: reviews + ' reviews', color: 'border-white/10' },
-                                { icon: <FaShoppingBag size={11} className='text-green-400' />, label: 'Available', color: 'border-green-500/20' }
-                            ].map((stat, idx) => (
-                                <motion.div 
-                                    key={idx}
-                                    whileHover={{ scale: 1.05, y: -2 }}
-                                    className={`flex items-center gap-1.5 p-2 rounded-lg bg-white/5 border ${stat.color} transition-all duration-300`}
-                                >
-                                    {stat.icon}
-                                    <span className='text-white/40 text-[10px] font-medium'>{stat.label}</span>
-                                </motion.div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* ✅ Action Buttons - Premium */}
-                    <div className='p-4 pt-0 border-t border-white/5 flex items-center gap-2'>
-                        <motion.button
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                            className='flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white text-sm font-medium shadow-lg shadow-[#ff2d55]/25 hover:shadow-[#ff2d55]/50 transition-all duration-300 flex items-center justify-center gap-2 group'
-                            onClick={() => navigate(`/edit-item/${itemId}`)}
-                        >
-                            <FaEdit size={14} className='group-hover:rotate-12 transition-transform' /> 
-                            <span className='hidden sm:inline'>Edit</span>
-                            <FaArrowRight size={10} className='group-hover:translate-x-1 transition-transform opacity-0 group-hover:opacity-100' />
-                        </motion.button>
-
-                        <motion.button
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                            className={`flex-1 py-2.5 rounded-xl text-white text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
-                                showDeleteConfirm 
-                                    ? 'bg-gradient-to-r from-red-600 to-red-500 shadow-lg shadow-red-500/40 animate-pulse'
-                                    : 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/20'
-                            }`}
-                            onClick={() => {
-                                if (showDeleteConfirm) {
-                                    handleDelete()
-                                } else {
-                                    setShowDeleteConfirm(true)
-                                    setTimeout(() => setShowDeleteConfirm(false), 3000)
-                                }
-                            }}
-                        >
-                            {showDeleteConfirm ? (
-                                <>
-                                    <motion.span 
-                                        animate={{ scale: [1, 1.2, 1] }}
-                                        transition={{ duration: 0.8, repeat: Infinity }}
-                                    >
-                                        ⚠️
-                                    </motion.span>
-                                    <span className='hidden sm:inline'>Confirm</span>
-                                </>
-                            ) : (
-                                <>
-                                    <FaTrash size={14} /> 
-                                    <span className='hidden sm:inline'>Delete</span>
-                                </>
-                            )}
-                        </motion.button>
-                    </div>
+                    </motion.button>
                 </div>
             </div>
 
-            {/* ✅ Hover Overlay - Ultra Premium */}
+            {/* ✅ Hover Overlay - Clean */}
             <AnimatePresence>
                 {isHovered && (
                     <motion.div 
-                        initial={{ opacity: 0, scale: 0.8, backdropFilter: 'blur(0px)' }}
-                        animate={{ opacity: 1, scale: 1, backdropFilter: 'blur(20px)' }}
-                        exit={{ opacity: 0, scale: 0.8, backdropFilter: 'blur(0px)' }}
-                        className='absolute inset-0 bg-black/80 backdrop-blur-2xl rounded-2xl flex items-center justify-center z-20'
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className='absolute inset-0 bg-white/95 backdrop-blur-sm rounded-2xl flex items-center justify-center z-20 border-2 border-orange-300 shadow-lg'
                     >
-                        <div className='text-center space-y-4 p-8'>
+                        <div className='text-center space-y-3 p-6'>
                             <motion.div
-                                initial={{ y: 30, opacity: 0 }}
+                                initial={{ y: 10, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
                             >
-                                <motion.div
-                                    animate={{ rotate: [0, 5, -5, 0] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                >
-                                    <span className='text-7xl block mb-3'>🍽️</span>
-                                </motion.div>
-                                <motion.h3 
-                                    className='text-white font-bold text-2xl'
-                                    animate={{ y: [0, -3, 0] }}
-                                    transition={{ duration: 1.5, repeat: Infinity }}
-                                >
-                                    {itemName}
-                                </motion.h3>
-                                <p className='text-white/40 text-sm'>{itemCategory}</p>
+                                <span className='text-5xl block mb-2'>🍽️</span>
+                                <h3 className='text-gray-900 font-bold text-xl'>{itemName}</h3>
+                                <p className='text-gray-500 text-sm'>{itemCategory}</p>
                             </motion.div>
                             
                             <motion.div
-                                initial={{ y: 30, opacity: 0 }}
+                                initial={{ y: 10, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                                className='flex items-center justify-center gap-6 text-white/60 text-sm'
+                                transition={{ delay: 0.05 }}
+                                className='flex items-center justify-center gap-3 text-gray-600 text-xs font-medium'
                             >
-                                <div className='flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/5'>
-                                    <FaStar className='text-yellow-400' size={12} />
+                                <div className='flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 border border-gray-200'>
+                                    <FaStar className='text-amber-400' size={12} />
                                     {rating.toFixed(1)}
                                 </div>
-                                <div className='flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/5'>
-                                    <FaClock className='text-[#ff6b35]' size={12} />
+                                <div className='flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 border border-gray-200'>
+                                    <FaClock className='text-orange-500' size={12} />
                                     {deliveryTime}m
                                 </div>
-                                <div className='flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/5'>
-                                    <FaTag className='text-[#ff6b35]' size={12} />
+                                <div className='flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 border border-gray-200'>
+                                    <FaTag className='text-orange-500' size={12} />
                                     ₹{itemPrice}
                                 </div>
                             </motion.div>
@@ -370,64 +298,48 @@ function OwnerItemCard({ data, index = 0, onDelete }) {
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                transition={{ delay: 0.3 }}
-                                className='px-8 py-3 rounded-full bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white font-medium shadow-2xl shadow-[#ff2d55]/40 flex items-center gap-2 mx-auto group'
+                                transition={{ delay: 0.1 }}
+                                className='px-6 py-2 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium shadow-sm shadow-orange-200 flex items-center gap-2 mx-auto group'
                                 onClick={() => navigate(`/shop/${shopId}`)}
                             >
-                                <FaEye size={16} className='group-hover:scale-110 transition-transform' /> 
-                                View Details
-                                <FaArrowRight size={14} className='group-hover:translate-x-2 transition-transform duration-300' />
+                                <FaEye size={14} /> View Details
+                                <FaArrowRight size={12} className='group-hover:translate-x-1 transition-transform' />
                             </motion.button>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* ✅ Deleting Overlay - Premium */}
+            {/* ✅ Deleting Overlay */}
             <AnimatePresence>
                 {isDeleting && (
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className='absolute inset-0 bg-black/90 backdrop-blur-2xl rounded-2xl flex items-center justify-center z-30'
+                        className='absolute inset-0 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center z-30'
                     >
                         <motion.div
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: 1, rotate: 0 }}
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
                             transition={{ type: "spring", stiffness: 300 }}
                             className='text-center'
                         >
-                            <motion.div
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                                className='w-16 h-16 border-4 border-[#ff2d55] border-t-transparent rounded-full mx-auto'
-                            />
-                            <p className='text-white font-semibold text-sm mt-4 animate-pulse'>Deleting...</p>
-                            <p className='text-white/30 text-xs'>Please wait</p>
+                            <div className='w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full mx-auto animate-spin' />
+                            <p className='text-gray-700 font-semibold text-sm mt-3 animate-pulse'>Deleting...</p>
+                            <p className='text-gray-400 text-xs'>Please wait</p>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
             <style jsx>{`
-                .glass-premium-ultra {
-                    background: rgba(255, 255, 255, 0.03);
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                    border: 1px solid rgba(255, 255, 255, 0.06);
-                }
                 @keyframes pulse {
                     0%, 100% { opacity: 1; }
                     50% { opacity: 0.5; }
                 }
                 .animate-pulse {
                     animation: pulse 1.5s ease-in-out infinite;
-                }
-                @keyframes float-3d {
-                    0%, 100% { transform: translate(0, 0) scale(1); }
-                    33% { transform: translate(40px, -30px) scale(1.1); }
-                    66% { transform: translate(-20px, 20px) scale(0.9); }
                 }
             `}</style>
         </motion.div>

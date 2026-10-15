@@ -1,6 +1,9 @@
 import Shop from "../models/shop.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 
+// ============================================
+// CREATE OR EDIT SHOP
+// ============================================
 export const createEditShop = async (req, res) => {
     try {
         const { name, city, state, address } = req.body
@@ -87,37 +90,80 @@ export const createEditShop = async (req, res) => {
     }
 }
 
+// ============================================
+// GET MY SINGLE SHOP (for backward compatibility)
+// ============================================
 export const getMyShop = async (req, res) => {
     try {
-        if (!req.userId) {
+        const userId = req.userId
+        
+        if (!userId) {
             return res.status(401).json({ 
-                message: "Authentication required" 
+                message: "Unauthorized" 
             })
         }
 
-        const shop = await Shop.findOne({ owner: req.userId })
-            .populate("owner")
-            .populate({
-                path: "items",
-                options: { sort: { updatedAt: -1 } }
-            })
-
+        const shop = await Shop.findOne({ owner: userId })
+            .populate('owner', 'fullName email mobile')
+            .populate('items')
+        
         if (!shop) {
             return res.status(404).json({ 
-                message: "No shop found for this owner" 
+                success: false,
+                message: "No shop found for this user",
+                shop: null 
             })
         }
 
-        return res.status(200).json(shop)
-
+        return res.status(200).json({ 
+            success: true, 
+            shop 
+        })
     } catch (error) {
         console.log("❌ Get my shop error:", error.message)
         return res.status(500).json({ 
-            message: `get my shop error: ${error.message}` 
+            success: false,
+            message: error.message 
         })
     }
 }
 
+// ============================================
+// ✅ NEW: GET ALL SHOPS OF THE OWNER (Multiple Shops Support)
+// ============================================
+export const getMyShops = async (req, res) => {
+    try {
+        const userId = req.userId
+        
+        if (!userId) {
+            return res.status(401).json({ 
+                success: false,
+                message: "Unauthorized" 
+            })
+        }
+
+        const shops = await Shop.find({ owner: userId })
+            .populate('owner', 'fullName email mobile')
+            .populate('items')
+            .sort({ createdAt: -1 })
+
+        return res.status(200).json({ 
+            success: true, 
+            shops: shops || [],
+            count: shops.length
+        })
+    } catch (error) {
+        console.log("❌ Get my shops error:", error.message)
+        return res.status(500).json({ 
+            success: false,
+            message: error.message 
+        })
+    }
+}
+
+// ============================================
+// GET SHOPS BY CITY
+// ============================================
 export const getShopByCity = async (req, res) => {
     try {
         const { city } = req.params
@@ -130,16 +176,141 @@ export const getShopByCity = async (req, res) => {
         }
 
         const shops = await Shop.find({
-            city: { $regex: new RegExp(`^${city}$`, "i") }
+            city: { $regex: new RegExp(`^${city}$`, "i") },
+            isApproved: true  // ✅ Only approved shops for customers
         }).populate("items")
+        .populate('owner', 'fullName email')
 
         // ✅ Return empty array (not 400)
-        return res.status(200).json(shops)
+        return res.status(200).json(shops || [])
 
     } catch (error) {
         console.log("❌ Get shop by city error:", error.message)
         return res.status(500).json({ 
             message: `get shop by city error: ${error.message}` 
+        })
+    }
+}
+
+// ============================================
+// GET SHOP BY ID
+// ============================================
+export const getShopById = async (req, res) => {
+    try {
+        const { id } = req.params
+        
+        if (!id) {
+            return res.status(400).json({ 
+                message: "Shop ID is required" 
+            })
+        }
+
+        const shop = await Shop.findById(id)
+            .populate('owner', 'fullName email mobile')
+            .populate({
+                path: 'items',
+                options: { sort: { createdAt: -1 } }
+            })
+
+        if (!shop) {
+            return res.status(404).json({ 
+                message: "Shop not found" 
+            })
+        }
+
+        return res.status(200).json({ 
+            success: true, 
+            shop 
+        })
+    } catch (error) {
+        console.log("❌ Get shop by ID error:", error.message)
+        return res.status(500).json({ 
+            message: error.message 
+        })
+    }
+}
+
+// ============================================
+// DELETE SHOP
+// ============================================
+export const deleteShop = async (req, res) => {
+    try {
+        const { id } = req.params
+        const userId = req.userId
+
+        const shop = await Shop.findOne({ _id: id, owner: userId })
+        
+        if (!shop) {
+            return res.status(404).json({ 
+                message: "Shop not found or you don't have permission" 
+            })
+        }
+
+        await Shop.findByIdAndDelete(id)
+
+        return res.status(200).json({ 
+            success: true,
+            message: "Shop deleted successfully" 
+        })
+    } catch (error) {
+        console.log("❌ Delete shop error:", error.message)
+        return res.status(500).json({ 
+            message: error.message 
+        })
+    }
+}
+
+// ============================================
+// GET ALL SHOPS (Admin Only)
+// ============================================
+export const getAllShops = async (req, res) => {
+    try {
+        const shops = await Shop.find()
+            .populate('owner', 'fullName email mobile')
+            .populate('items')
+            .sort({ createdAt: -1 })
+
+        return res.status(200).json({ 
+            success: true, 
+            shops: shops || [],
+            count: shops.length
+        })
+    } catch (error) {
+        console.log("❌ Get all shops error:", error.message)
+        return res.status(500).json({ 
+            message: error.message 
+        })
+    }
+}
+
+// ============================================
+// APPROVE SHOP (Admin Only)
+// ============================================
+export const approveShop = async (req, res) => {
+    try {
+        const { id } = req.params
+
+        const shop = await Shop.findByIdAndUpdate(
+            id,
+            { isApproved: true },
+            { new: true }
+        )
+
+        if (!shop) {
+            return res.status(404).json({ 
+                message: "Shop not found" 
+            })
+        }
+
+        return res.status(200).json({ 
+            success: true,
+            message: "Shop approved successfully",
+            shop 
+        })
+    } catch (error) {
+        console.log("❌ Approve shop error:", error.message)
+        return res.status(500).json({ 
+            message: error.message 
         })
     }
 }

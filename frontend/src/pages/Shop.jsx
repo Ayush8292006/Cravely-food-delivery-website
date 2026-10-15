@@ -1,6 +1,7 @@
 import axios from 'axios'
 import React, { useEffect, useState } from 'react'
-import { serverUrl } from '../App'
+// ✅ FIXED: Correct import
+import { serverUrl } from '../../config'
 import { useNavigate, useParams } from 'react-router-dom'
 import { 
     FaUtensils, FaStore, FaArrowLeft, FaStar, FaClock, 
@@ -24,6 +25,7 @@ function Shop() {
     const [items, setItems] = useState([])
     const [shop, setShop] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
     const [isLoaded, setIsLoaded] = useState(false)
     const [activeFilter, setActiveFilter] = useState('all')
     const [showShareModal, setShowShareModal] = useState(false)
@@ -36,13 +38,22 @@ function Shop() {
 
     const handleShop = async () => {
         setLoading(true)
+        setError(null)
         try {
             const result = await axios.get(`${serverUrl}/api/item/get-by-shop/${shopId}`,
                 { withCredentials: true })
-            setShop(result.data.shop)
-            setItems(result.data.items || [])
+            
+            if (result.data) {
+                setShop(result.data.shop)
+                setItems(result.data.items || [])
+            } else {
+                setError('Shop not found')
+            }
         } catch (error) {
-            console.log(error)
+            console.log('Shop error:', error)
+            const errorMsg = error.response?.data?.message || 'Failed to load shop'
+            setError(errorMsg)
+            toast.error(errorMsg)
         } finally {
             setLoading(false)
         }
@@ -87,7 +98,7 @@ function Shop() {
         }
     }
 
-    // ✅ Share Functions
+    // ✅ Share Functions - FIXED: Added missing backtick
     const shareUrl = window.location.href
     const shareTitle = shop ? `Check out ${shop.name} on Cravely! 🍕` : 'Check out this restaurant on Cravely!'
 
@@ -138,27 +149,66 @@ function Shop() {
         }
     }
 
-    return (
-        <div className='min-h-screen bg-[#0a0a0f] relative overflow-hidden'>
-            
-            {/* ✅ Animated Background Orbs */}
-            <div className='absolute inset-0 pointer-events-none'>
+    // ✅ Error State
+    if (error && !loading) {
+        return (
+            <div className='min-h-screen bg-white flex items-center justify-center p-4'>
                 <motion.div 
-                    animate={{ x: [0, 60, -30, 0], y: [0, -40, 50, 0] }}
-                    transition={{ duration: 20, repeat: Infinity }}
-                    className='absolute -top-40 -left-40 w-[700px] h-[700px] bg-[#ff2d55]/4 rounded-full blur-3xl'
-                />
-                <motion.div 
-                    animate={{ x: [0, -50, 30, 0], y: [0, 40, -50, 0] }}
-                    transition={{ duration: 25, repeat: Infinity }}
-                    className='absolute -bottom-40 -right-40 w-[700px] h-[700px] bg-[#ff6b35]/4 rounded-full blur-3xl'
-                />
-                <motion.div 
-                    animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.5, 0.2] }}
-                    transition={{ duration: 15, repeat: Infinity }}
-                    className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] bg-[#ffd93d]/2 rounded-full blur-3xl'
-                />
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className='text-center max-w-md'
+                >
+                    <div className='w-24 h-24 mx-auto rounded-full bg-red-50 border-2 border-red-200 flex items-center justify-center mb-4'>
+                        <FaTimes className='text-red-500 text-5xl' />
+                    </div>
+                    <h2 className='text-2xl font-bold text-gray-800 mb-2'>Oops! Something went wrong</h2>
+                    <p className='text-gray-500 text-sm mb-6'>{error}</p>
+                    <div className='flex flex-col sm:flex-row gap-3 justify-center'>
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleShop}
+                            className='px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium flex items-center justify-center gap-2 shadow-sm shadow-orange-200'
+                        >
+                            Try Again
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => navigate('/')}
+                            className='px-6 py-2.5 rounded-xl bg-gray-100 border border-gray-200 text-gray-600 hover:bg-gray-200 transition'
+                        >
+                            Go Home
+                        </motion.button>
+                    </div>
+                </motion.div>
             </div>
+        )
+    }
+
+    return (
+        <div 
+            className='min-h-screen bg-[#f8f4f0] relative'
+            style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}
+        >
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+                
+                ::-webkit-scrollbar {
+                    width: 4px;
+                }
+                ::-webkit-scrollbar-track {
+                    background: #f0ebe5;
+                    border-radius: 10px;
+                }
+                ::-webkit-scrollbar-thumb {
+                    background: #d4845a;
+                    border-radius: 10px;
+                }
+                ::-webkit-scrollbar-thumb:hover {
+                    background: #c2744a;
+                }
+            `}</style>
 
             <div className='relative z-10'>
                 
@@ -167,10 +217,10 @@ function Shop() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5 }}
-                    className='fixed top-6 left-6 z-50 glass-premium-ultra px-5 py-3 rounded-full text-white/80 hover:text-white transition-all duration-300 flex items-center gap-2.5 text-sm hover:scale-105 hover:shadow-lg hover:shadow-[#ff2d55]/20 border border-white/10 hover:border-[#ff2d55]/30 backdrop-blur-xl'
+                    className='fixed top-6 left-6 z-50 bg-white/90 backdrop-blur-sm px-5 py-3 rounded-full text-gray-700 hover:text-gray-900 transition-all duration-300 flex items-center gap-2.5 text-sm hover:shadow-md border-2 border-gray-200 hover:border-orange-300'
                     onClick={() => navigate("/")}
                 >
-                    <FaArrowLeft size={14} className='group-hover:-translate-x-1 transition-transform' />
+                    <FaArrowLeft size={14} />
                     <span className='font-medium hidden sm:inline'>Back to Home</span>
                 </motion.button>
 
@@ -182,7 +232,7 @@ function Shop() {
                     className='fixed top-6 right-6 z-50'
                 >
                     <button 
-                        className='glass-premium-ultra p-3.5 rounded-full text-white/70 hover:text-white transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-[#ff2d55]/20 border border-white/10 hover:border-[#ff2d55]/40 backdrop-blur-xl'
+                        className='bg-white/90 backdrop-blur-sm p-3.5 rounded-full text-gray-600 hover:text-orange-600 transition-all duration-300 hover:shadow-md border-2 border-gray-200 hover:border-orange-300'
                         onClick={handleShareNative}
                         title="Share this restaurant"
                     >
@@ -197,71 +247,74 @@ function Shop() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className='fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md'
+                            className='fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm'
                             onClick={() => setShowShareModal(false)}
                         >
                             <motion.div 
                                 initial={{ scale: 0.8, y: 30 }}
                                 animate={{ scale: 1, y: 0 }}
                                 exit={{ scale: 0.8, y: 30 }}
-                                className='glass-premium-ultra p-8 rounded-3xl border border-white/10 max-w-md w-full mx-4 shadow-2xl shadow-[#ff2d55]/10'
+                                className='bg-white p-8 rounded-3xl border-2 border-gray-200 max-w-md w-full mx-4 shadow-xl'
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <div className='flex items-center justify-between mb-6'>
-                                    <h3 className='text-xl font-bold text-white'>Share Restaurant</h3>
+                                    <h3 className='text-xl font-bold text-gray-800'>Share Restaurant</h3>
                                     <button 
-                                        className='text-white/40 hover:text-white transition p-2 rounded-full hover:bg-white/5'
+                                        className='text-gray-400 hover:text-gray-600 transition p-2 rounded-full hover:bg-gray-100'
                                         onClick={() => setShowShareModal(false)}
                                     >
                                         <FaTimes size={20} />
                                     </button>
                                 </div>
 
-                                <div className='flex items-center gap-3 mb-6 p-3 rounded-xl bg-white/5 border border-white/5'>
+                                <div className='flex items-center gap-3 mb-6 p-3 rounded-xl bg-gray-50 border-2 border-gray-200'>
                                     <img 
-                                        src={shop?.image || 'https://via.placeholder.com/50'} 
+                                        src={shop?.image || 'https://via.placeholder.com/50/f0ebe5/cbb8a8?text=No+Image'} 
                                         alt={shop?.name}
                                         className='w-12 h-12 rounded-lg object-cover'
+                                        onError={(e) => {
+                                            e.target.src = 'https://via.placeholder.com/50/f0ebe5/cbb8a8?text=No+Image'
+                                        }}
                                     />
                                     <div className='flex-1 min-w-0'>
-                                        <p className='text-white font-semibold truncate'>{shop?.name}</p>
-                                        <p className='text-white/30 text-xs truncate'>{shareUrl}</p>
+                                        <p className='text-gray-800 font-semibold truncate'>{shop?.name || 'Restaurant'}</p>
+                                        <p className='text-gray-400 text-xs truncate'>{shareUrl}</p>
                                     </div>
                                 </div>
 
                                 <div className='grid grid-cols-4 gap-3'>
                                     <button
                                         onClick={handleShareWhatsApp}
-                                        className='flex flex-col items-center gap-2 p-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 hover:border-green-500/40 transition-all duration-300 hover:scale-105'
+                                        className='flex flex-col items-center gap-2 p-3 rounded-xl bg-green-50 hover:bg-green-100 border-2 border-green-200 hover:border-green-300 transition-all duration-300 hover:scale-105'
                                     >
-                                        <FaWhatsapp size={24} className='text-green-400' />
-                                        <span className='text-white/60 text-[10px]'>WhatsApp</span>
+                                        <FaWhatsapp size={24} className='text-green-500' />
+                                        <span className='text-gray-600 text-[10px] font-medium'>WhatsApp</span>
                                     </button>
                                     <button
                                         onClick={handleShareTwitter}
-                                        className='flex flex-col items-center gap-2 p-3 rounded-xl bg-blue-400/10 hover:bg-blue-400/20 border border-blue-400/20 hover:border-blue-400/40 transition-all duration-300 hover:scale-105'
+                                        className='flex flex-col items-center gap-2 p-3 rounded-xl bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-300 transition-all duration-300 hover:scale-105'
                                     >
-                                        <FaTwitter size={24} className='text-blue-400' />
-                                        <span className='text-white/60 text-[10px]'>Twitter</span>
+                                        <FaTwitter size={24} className='text-blue-500' />
+                                        <span className='text-gray-600 text-[10px] font-medium'>Twitter</span>
                                     </button>
                                     <button
                                         onClick={handleShareFacebook}
-                                        className='flex flex-col items-center gap-2 p-3 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 border border-blue-600/20 hover:border-blue-600/40 transition-all duration-300 hover:scale-105'
+                                        className='flex flex-col items-center gap-2 p-3 rounded-xl bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-300 transition-all duration-300 hover:scale-105'
                                     >
-                                        <FaFacebook size={24} className='text-blue-500' />
-                                        <span className='text-white/60 text-[10px]'>Facebook</span>
+                                        <FaFacebook size={24} className='text-blue-600' />
+                                        <span className='text-gray-600 text-[10px] font-medium'>Facebook</span>
                                     </button>
                                     <button
                                         onClick={handleCopyLink}
-                                        className='flex flex-col items-center gap-2 p-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:scale-105'
+                                        className='flex flex-col items-center gap-2 p-3 rounded-xl bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 hover:border-purple-300 transition-all duration-300 hover:scale-105'
                                     >
-                                        {copied ? <FaCheck size={24} className='text-green-400' /> : <FaLink size={24} className='text-purple-400' />}
-                                        <span className='text-white/60 text-[10px]'>{copied ? 'Copied!' : 'Copy Link'}</span>
+                                        {copied ? <FaCheck size={24} className='text-green-500' /> : <FaLink size={24} className='text-purple-500' />}
+                                        <span className='text-gray-600 text-[10px] font-medium'>{copied ? 'Copied!' : 'Copy Link'}</span>
                                     </button>
                                 </div>
 
-                                <div className='mt-4 pt-4 border-t border-white/5'>
-                                    <p className='text-white/20 text-[10px] text-center'>Share this restaurant with your friends and family! 🍕</p>
+                                <div className='mt-4 pt-4 border-t border-gray-200'>
+                                    <p className='text-gray-400 text-[10px] text-center'>Share this restaurant with your friends and family! 🍕</p>
                                 </div>
                             </motion.div>
                         </motion.div>
@@ -277,15 +330,17 @@ function Shop() {
                         className='relative w-full h-[360px] sm:h-[440px] md:h-[500px] lg:h-[540px] overflow-hidden'
                     >
                         {/* Background Image */}
-                        <div className='absolute inset-0 group'>
+                        <div className='absolute inset-0'>
                             <img 
-                                src={shop.image} 
+                                src={shop.image || 'https://via.placeholder.com/1200x600/f0ebe5/cbb8a8?text=Restaurant'} 
                                 alt={shop.name} 
-                                className='w-full h-full object-cover transform scale-105 group-hover:scale-100 transition-all duration-[800ms]'
+                                className='w-full h-full object-cover'
+                                onError={(e) => {
+                                    e.target.src = 'https://via.placeholder.com/1200x600/f0ebe5/cbb8a8?text=Restaurant'
+                                }}
                             />
-                            <div className='absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/60 to-black/30' />
-                            <div className='absolute inset-0 bg-gradient-to-r from-[#ff2d55]/10 via-transparent to-[#ff6b35]/10' />
-                            <div className='absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40' />
+                            <div className='absolute inset-0 bg-gradient-to-t from-[#f8f4f0] via-[#f8f4f0]/60 to-black/30' />
+                            <div className='absolute inset-0 bg-gradient-to-r from-orange-500/5 via-transparent to-orange-500/5' />
                         </div>
 
                         {/* Hero Content */}
@@ -299,11 +354,11 @@ function Shop() {
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: 0.3 }}
-                                            className='inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#ff2d55]/20 border border-[#ff2d55]/30 backdrop-blur-sm'
+                                            className='inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/90 backdrop-blur-sm border-2 border-gray-200 shadow-sm'
                                         >
-                                            <MdRestaurant className='text-[#ff6b35] text-sm' />
-                                            <span className='text-white/60 text-[10px] font-medium tracking-wider uppercase'>Verified Restaurant</span>
-                                            <MdVerified size={12} className='text-blue-400' />
+                                            <MdRestaurant className='text-orange-500 text-sm' />
+                                            <span className='text-gray-600 text-[10px] font-semibold uppercase tracking-wider'>Verified Restaurant</span>
+                                            <MdVerified size={12} className='text-blue-500' />
                                         </motion.div>
 
                                         <motion.div 
@@ -312,23 +367,23 @@ function Shop() {
                                             transition={{ delay: 0.4 }}
                                             className='flex items-center gap-4'
                                         >
-                                            <div className='w-14 h-14 rounded-2xl bg-gradient-to-br from-[#ff2d55]/30 to-[#ff6b35]/30 flex items-center justify-center border border-white/10 backdrop-blur-sm shadow-xl shadow-[#ff2d55]/10'>
-                                                <MdRestaurant className='text-[#ff6b35] text-3xl' />
+                                            <div className='w-14 h-14 rounded-2xl bg-white shadow-md border-2 border-gray-200 flex items-center justify-center'>
+                                                <MdRestaurant className='text-orange-500 text-3xl' />
                                             </div>
                                             <div>
-                                                <h1 className='text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight drop-shadow-2xl leading-tight'>
+                                                <h1 className='text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 tracking-tight drop-shadow-sm leading-tight'>
                                                     {shop.name}
                                                 </h1>
                                                 <div className='flex items-center gap-3 mt-1 flex-wrap'>
-                                                    <span className='flex items-center gap-1.5 text-white/50 text-xs sm:text-sm'>
-                                                        <FaMapMarkerAlt size={13} className='text-[#ff6b35]' />
+                                                    <span className='flex items-center gap-1.5 text-gray-600 text-xs sm:text-sm font-medium'>
+                                                        <FaMapMarkerAlt size={13} className='text-orange-500' />
                                                         {shop.address}, {shop.city}
                                                     </span>
-                                                    <span className='w-1 h-1 rounded-full bg-white/20' />
-                                                    <span className='flex items-center gap-1.5 text-white/50 text-xs sm:text-sm'>
-                                                        <FaStar size={13} className='text-yellow-400' />
+                                                    <span className='w-1 h-1 rounded-full bg-gray-300' />
+                                                    <span className='flex items-center gap-1.5 text-gray-600 text-xs sm:text-sm font-medium'>
+                                                        <FaStar size={13} className='text-amber-400' />
                                                         {shop.rating?.average || 4.5} 
-                                                        <span className='text-white/30'>({shop.rating?.count || 0} reviews)</span>
+                                                        <span className='text-gray-400'>({shop.rating?.count || 0} reviews)</span>
                                                     </span>
                                                 </div>
                                             </div>
@@ -340,21 +395,21 @@ function Shop() {
                                             transition={{ delay: 0.5 }}
                                             className='flex flex-wrap gap-2 sm:gap-3'
                                         >
-                                            <div className='glass-premium-ultra px-4 sm:px-5 py-1.5 sm:py-2 rounded-full border border-white/5 flex items-center gap-2 hover:border-[#ff6b35]/30 transition-all duration-300'>
-                                                <FaClock size={12} className='text-[#ff6b35]' />
-                                                <span className='text-white/70 text-[10px] sm:text-xs font-medium'>30-40 min</span>
+                                            <div className='bg-white border-2 border-gray-200 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full flex items-center gap-2 shadow-sm'>
+                                                <FaClock size={12} className='text-orange-500' />
+                                                <span className='text-gray-700 text-[10px] sm:text-xs font-medium'>30-40 min</span>
                                             </div>
-                                            <div className='glass-premium-ultra px-4 sm:px-5 py-1.5 sm:py-2 rounded-full border border-white/5 flex items-center gap-2 hover:border-blue-400/30 transition-all duration-300'>
-                                                <FaTruck size={12} className='text-blue-400' />
-                                                <span className='text-white/70 text-[10px] sm:text-xs font-medium'>Free Delivery</span>
+                                            <div className='bg-white border-2 border-gray-200 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full flex items-center gap-2 shadow-sm'>
+                                                <FaTruck size={12} className='text-blue-500' />
+                                                <span className='text-gray-700 text-[10px] sm:text-xs font-medium'>Free Delivery</span>
                                             </div>
-                                            <div className='glass-premium-ultra px-4 sm:px-5 py-1.5 sm:py-2 rounded-full border border-white/5 flex items-center gap-2 hover:border-green-400/30 transition-all duration-300'>
-                                                <MdDeliveryDining size={12} className='text-green-400' />
-                                                <span className='text-white/70 text-[10px] sm:text-xs font-medium'>Veg & Non-Veg</span>
+                                            <div className='bg-white border-2 border-gray-200 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full flex items-center gap-2 shadow-sm'>
+                                                <MdDeliveryDining size={12} className='text-green-500' />
+                                                <span className='text-gray-700 text-[10px] sm:text-xs font-medium'>Veg & Non-Veg</span>
                                             </div>
-                                            <div className='glass-premium-ultra px-4 sm:px-5 py-1.5 sm:py-2 rounded-full border border-white/5 flex items-center gap-2 hover:border-yellow-400/30 transition-all duration-300'>
-                                                <FaFire size={12} className='text-yellow-400' />
-                                                <span className='text-white/70 text-[10px] sm:text-xs font-medium'>Popular</span>
+                                            <div className='bg-white border-2 border-gray-200 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full flex items-center gap-2 shadow-sm'>
+                                                <FaFire size={12} className='text-amber-500' />
+                                                <span className='text-gray-700 text-[10px] sm:text-xs font-medium'>Popular</span>
                                             </div>
                                         </motion.div>
                                     </div>
@@ -366,17 +421,17 @@ function Shop() {
                                         transition={{ delay: 0.6 }}
                                         className='flex gap-2 sm:gap-4 flex-shrink-0'
                                     >
-                                        <div className='glass-premium-ultra px-5 sm:px-7 py-3 sm:py-4 rounded-2xl border border-white/5 text-center hover:border-[#ff2d55]/30 transition-all duration-300 hover:scale-105'>
-                                            <p className='text-2xl sm:text-3xl font-bold text-white'>{items.length}</p>
-                                            <p className='text-white/30 text-[8px] sm:text-[10px] uppercase tracking-wider mt-0.5'>Items</p>
+                                        <div className='bg-white border-2 border-gray-200 px-5 sm:px-7 py-3 sm:py-4 rounded-2xl text-center shadow-sm hover:border-orange-300 transition-all duration-300'>
+                                            <p className='text-2xl sm:text-3xl font-bold text-gray-800'>{items.length}</p>
+                                            <p className='text-gray-400 text-[8px] sm:text-[10px] uppercase tracking-wider mt-0.5 font-medium'>Items</p>
                                         </div>
-                                        <div className='glass-premium-ultra px-5 sm:px-7 py-3 sm:py-4 rounded-2xl border border-white/5 text-center hover:border-green-400/30 transition-all duration-300 hover:scale-105'>
-                                            <p className='text-2xl sm:text-3xl font-bold text-green-400'>{vegCount}</p>
-                                            <p className='text-white/30 text-[8px] sm:text-[10px] uppercase tracking-wider mt-0.5'>Veg</p>
+                                        <div className='bg-green-50 border-2 border-green-200 px-5 sm:px-7 py-3 sm:py-4 rounded-2xl text-center shadow-sm hover:border-green-300 transition-all duration-300'>
+                                            <p className='text-2xl sm:text-3xl font-bold text-green-600'>{vegCount}</p>
+                                            <p className='text-green-500 text-[8px] sm:text-[10px] uppercase tracking-wider mt-0.5 font-medium'>Veg</p>
                                         </div>
-                                        <div className='glass-premium-ultra px-5 sm:px-7 py-3 sm:py-4 rounded-2xl border border-white/5 text-center hover:border-red-400/30 transition-all duration-300 hover:scale-105'>
-                                            <p className='text-2xl sm:text-3xl font-bold text-red-400'>{nonVegCount}</p>
-                                            <p className='text-white/30 text-[8px] sm:text-[10px] uppercase tracking-wider mt-0.5'>Non-Veg</p>
+                                        <div className='bg-red-50 border-2 border-red-200 px-5 sm:px-7 py-3 sm:py-4 rounded-2xl text-center shadow-sm hover:border-red-300 transition-all duration-300'>
+                                            <p className='text-2xl sm:text-3xl font-bold text-red-600'>{nonVegCount}</p>
+                                            <p className='text-red-500 text-[8px] sm:text-[10px] uppercase tracking-wider mt-0.5 font-medium'>Non-Veg</p>
                                         </div>
                                     </motion.div>
                                 </div>
@@ -396,46 +451,46 @@ function Shop() {
                         className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 sm:mb-10'
                     >
                         <div className='flex items-center gap-3 sm:gap-4'>
-                            <div className='w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#ff2d55]/20 to-[#ff6b35]/20 flex items-center justify-center border border-white/10'>
-                                <FaUtensils size={18} className="sm:text-xl text-[#ff6b35]" />
+                            <div className='w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-orange-50 border-2 border-orange-200 flex items-center justify-center'>
+                                <FaUtensils size={18} className="sm:text-xl text-orange-500" />
                             </div>
                             <div>
-                                <h2 className='text-xl sm:text-2xl md:text-3xl font-bold text-white tracking-tight'>Our Menu</h2>
-                                <p className='text-white/30 text-xs sm:text-sm flex items-center gap-2'>
+                                <h2 className='text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 tracking-tight'>Our Menu</h2>
+                                <p className='text-gray-500 text-xs sm:text-sm flex items-center gap-2 font-medium'>
                                     <span>Discover delicious items</span>
-                                    <span className='w-1 h-1 rounded-full bg-white/20' />
-                                    <span className='text-[#ff6b35] font-medium'>{filteredItems.length} items</span>
+                                    <span className='w-1 h-1 rounded-full bg-gray-300' />
+                                    <span className='text-orange-600 font-bold'>{filteredItems.length} items</span>
                                 </p>
                             </div>
                         </div>
                         
-                        {/* ✅ Premium Filter Buttons - Responsive */}
-                        <div className='flex gap-1.5 sm:gap-2 p-1 rounded-xl bg-white/5 border border-white/5 backdrop-blur-sm flex-wrap'>
+                        {/* ✅ Premium Filter Buttons */}
+                        <div className='flex gap-1.5 sm:gap-2 p-1 rounded-xl bg-white border-2 border-gray-200 shadow-sm flex-wrap'>
                             <button
-                                className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-sm font-medium transition-all duration-300 ${
+                                className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-sm font-semibold transition-all duration-300 ${
                                     activeFilter === 'all' 
-                                        ? 'bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white shadow-lg shadow-[#ff2d55]/25'
-                                        : 'text-white/40 hover:text-white hover:bg-white/5'
+                                        ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
+                                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                                 }`}
                                 onClick={() => setActiveFilter('all')}
                             >
                                 All
                             </button>
                             <button
-                                className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-sm font-medium transition-all duration-300 flex items-center gap-1 ${
+                                className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-sm font-semibold transition-all duration-300 flex items-center gap-1 ${
                                     activeFilter === 'veg' 
-                                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
-                                        : 'text-white/40 hover:text-white hover:bg-white/5'
+                                        ? 'bg-green-500 text-white shadow-sm shadow-green-200'
+                                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                                 }`}
                                 onClick={() => setActiveFilter('veg')}
                             >
                                 <FaLeaf size={11} className="sm:text-sm" /> Veg
                             </button>
                             <button
-                                className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-sm font-medium transition-all duration-300 flex items-center gap-1 ${
+                                className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-sm font-semibold transition-all duration-300 flex items-center gap-1 ${
                                     activeFilter === 'non veg' 
-                                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
-                                        : 'text-white/40 hover:text-white hover:bg-white/5'
+                                        ? 'bg-red-500 text-white shadow-sm shadow-red-200'
+                                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                                 }`}
                                 onClick={() => setActiveFilter('non veg')}
                             >
@@ -448,13 +503,13 @@ function Shop() {
                     {loading ? (
                         <div className='flex flex-col items-center justify-center py-20 sm:py-28'>
                             <div className='relative'>
-                                <ClipLoader size={50} className="sm:w-[60px] sm:h-[60px]" color="#ff2d55" />
-                                <div className='absolute inset-0 animate-ping rounded-full border-2 border-[#ff2d55]/20' />
+                                <ClipLoader size={50} className="sm:w-[60px] sm:h-[60px]" color="#d4845a" />
+                                <div className='absolute inset-0 animate-ping rounded-full border-2 border-orange-300/20' />
                             </div>
-                            <p className='mt-6 text-white/40 text-xs sm:text-sm animate-pulse flex items-center gap-2'>
-                                <span className='w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#ff2d55]/40 animate-pulse' />
+                            <p className='mt-6 text-gray-500 text-xs sm:text-sm animate-pulse flex items-center gap-2 font-medium'>
+                                <span className='w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-orange-400 animate-pulse' />
                                 Loading delicious items...
-                                <span className='w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#ff6b35]/40 animate-pulse animation-delay-300' />
+                                <span className='w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-orange-400 animate-pulse animation-delay-300' />
                             </p>
                         </div>
                     ) : filteredItems.length > 0 ? (
@@ -480,22 +535,21 @@ function Shop() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.5 }}
-                            className='glass-premium-ultra p-12 sm:p-20 rounded-3xl border border-white/5 text-center relative overflow-hidden group'
+                            className='bg-white border-2 border-gray-200 p-12 sm:p-20 rounded-3xl text-center shadow-sm'
                         >
-                            <div className='absolute inset-0 bg-gradient-to-r from-[#ff2d55]/8 to-[#ff6b35]/8 opacity-0 group-hover:opacity-100 transition-opacity duration-700' />
                             <div className='relative z-10'>
-                                <div className='w-20 h-20 sm:w-28 sm:h-28 mx-auto mb-4 sm:mb-5 rounded-full bg-gradient-to-br from-[#ff2d55]/10 to-[#ff6b35]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 border border-white/10'>
-                                    <FaUtensils size={32} className="sm:text-4xl text-white/20" />
+                                <div className='w-20 h-20 sm:w-28 sm:h-28 mx-auto mb-4 sm:mb-5 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center'>
+                                    <FaUtensils size={32} className="sm:text-4xl text-gray-300" />
                                 </div>
-                                <h3 className='text-xl sm:text-2xl font-semibold text-white mb-2'>No Items Found</h3>
-                                <p className='text-white/30 text-xs sm:text-sm max-w-sm mx-auto leading-relaxed'>
+                                <h3 className='text-xl sm:text-2xl font-bold text-gray-800 mb-2'>No Items Found</h3>
+                                <p className='text-gray-500 text-xs sm:text-sm max-w-sm mx-auto leading-relaxed font-medium'>
                                     {activeFilter !== 'all' 
                                         ? `No ${activeFilter} items available at this restaurant right now`
                                         : 'This restaurant hasn\'t added any items to their menu yet'}
                                 </p>
                                 {activeFilter !== 'all' && (
                                     <button 
-                                        className='mt-5 sm:mt-6 px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl glass-premium-ultra text-white/70 hover:text-white transition-all duration-300 border border-white/10 hover:border-[#ff2d55]/30 flex items-center gap-2 mx-auto text-xs sm:text-sm'
+                                        className='mt-5 sm:mt-6 px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl bg-gray-100 border-2 border-gray-200 text-gray-600 hover:text-gray-800 hover:border-orange-300 transition-all duration-300 flex items-center gap-2 mx-auto text-xs sm:text-sm font-semibold'
                                         onClick={() => setActiveFilter('all')}
                                     >
                                         <FaArrowRight size={11} className="sm:text-sm" /> Show All Items
@@ -508,16 +562,6 @@ function Shop() {
             </div>
 
             <style jsx>{`
-                @keyframes float-3d {
-                    0%, 100% { transform: translate(0, 0) scale(1); }
-                    33% { transform: translate(40px, -30px) scale(1.1); }
-                    66% { transform: translate(-20px, 20px) scale(0.9); }
-                }
-                .animate-float-3d {
-                    animation: float-3d 15s ease-in-out infinite;
-                }
-                .animation-delay-300 { animation-delay: 0.3s; }
-
                 @keyframes float-up {
                     from { opacity: 0; transform: translateY(30px) scale(0.95); }
                     to { opacity: 1; transform: translateY(0) scale(1); }
@@ -534,24 +578,6 @@ function Shop() {
                     animation: pulse 2s ease-in-out infinite;
                 }
                 .animation-delay-300 { animation-delay: 0.3s; }
-
-                .glass-premium-ultra {
-                    background: rgba(255, 255, 255, 0.04);
-                    backdrop-filter: blur(24px);
-                    -webkit-backdrop-filter: blur(24px);
-                    border: 1px solid rgba(255, 255, 255, 0.06);
-                }
-
-                ::-webkit-scrollbar {
-                    width: 4px;
-                }
-                ::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                ::-webkit-scrollbar-thumb {
-                    background: rgba(255, 45, 85, 0.3);
-                    border-radius: 10px;
-                }
             `}</style>
         </div>
     )

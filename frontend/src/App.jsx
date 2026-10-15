@@ -1,3 +1,5 @@
+// src/App.js
+
 import React, { useEffect, useState, useRef } from "react"
 import { Routes, Route, Navigate, useLocation } from "react-router-dom"
 import SignUp from "./pages/SignUp"
@@ -17,9 +19,10 @@ import useGetItemByCity from "../hooks/useGetItemsByCity"
 import CartPage from "./pages/CartPage"
 import CheckOut from "./pages/CheckOut"
 import OrderPlaced from "./pages/OrderPlaced"
-import AdminDashboard from './pages/AdminDashboard'
+import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminShops from './pages/admin/AdminShops'
+import AdminLayout from "./pages/admin/AdminLayout"
 import AdminOrders from './pages/admin/AdminOrders'
 import AdminDeliveryBoys from './pages/admin/AdminDeliveryBoys'
 import AdminRevenue from './pages/admin/AdminRevenue'
@@ -43,9 +46,13 @@ import SuperAdminLogin from './pages/SuperAdminLogin'
 import CategoryPage from './pages/CategoryPage'
 import OwnerDashboard from './components/OwnerDashboard'
 import OwnerMyOrders from './pages/OwnerMyOrders'
-import DeliveryBoy from './components/DeliveryBoy'
 
-export const serverUrl = "https://cravely-backend-dmak.onrender.com"
+import DeliveryBoy from './components/DeliveryBoy.jsx'
+import DeliveryBoyOrders from './components/DeliveryBoyOrders.jsx'
+import DeliveryBoyProfile from './components/DeliveryBoyProfile.jsx'
+
+// ✅ Import from config
+import { serverUrl } from '../config'
 
 function App() {
   const { userData } = useSelector(state => state.user)
@@ -53,6 +60,10 @@ function App() {
   const location = useLocation()
   const [loading, setLoading] = useState(true)
   const socketRef = useRef(null)
+
+  const [showSplash, setShowSplash] = useState(() => {
+    return !localStorage.getItem("hasSeenSplash")
+  })
 
   useGetCurrentUser()
   useUpdateLocation()
@@ -69,12 +80,17 @@ function App() {
     return () => clearTimeout(timer)
   }, [])
 
-  // ✅ TOKEN CHECK - Force logout if token missing
+  useEffect(() => {
+    if (showSplash) {
+      localStorage.setItem("hasSeenSplash", "true")
+    }
+  }, [showSplash])
+
+  // ✅ Token check - logout if token missing
   useEffect(() => {
     const hasToken = document.cookie.includes('token=')
     const hasUserData = localStorage.getItem('userData')
     
-    // If no token but userData exists, force logout
     if (!hasToken && hasUserData) {
       console.log("🔴 Token missing! Forcing logout...")
       localStorage.removeItem('userData')
@@ -84,6 +100,7 @@ function App() {
     }
   }, [dispatch])
 
+  // ✅ Socket Connection
   useEffect(() => {
     if (!userData?._id) {
       if (socketRef.current) {
@@ -123,7 +140,7 @@ function App() {
       socketInstance.disconnect()
       socketRef.current = null
     }
-  }, [userData?._id, serverUrl])
+  }, [userData?._id])
 
   if (loading) {
     return (
@@ -143,17 +160,32 @@ function App() {
       <div className="flex flex-col min-h-screen">
         <div className="flex-1">
           <Routes>
-            <Route path='/' element={<SplashScreen />} />
+            {/* ✅ Splash & Landing */}
+            <Route
+              path="/"
+              element={
+                showSplash ? (
+                  <SplashScreen />
+                ) : userData ? (
+                  <Navigate to="/home" replace />
+                ) : (
+                  <Navigate to="/landing" replace />
+                )
+              }
+            />
+
             <Route path='/landing' element={<LandingPage />} />
             <Route path='/about' element={<About />} />
             <Route path='/contact' element={<Contact />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             
+            {/* ✅ Auth Routes */}
             <Route path='/signup' element={!userData ? <SignUp /> : <Navigate to={"/"} />} />
             <Route path='/signin' element={!userData ? <SignIn /> : <Navigate to={"/"} />} />
             <Route path='/forgot-password' element={!userData ? <ForgotPassword /> : <Navigate to={"/"} />} />
             <Route path='/login-otp' element={!userData ? <LoginOtp /> : <Navigate to={"/"} />} />
             
+            {/* ✅ Admin Routes */}
             <Route path='/admin/login' element={<SuperAdminLogin />} />
             <Route path='/admin/dashboard' element={userData?.role === 'superAdmin' ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/users' element={userData?.role === 'superAdmin' ? <AdminUsers /> : <Navigate to="/admin/login" />} />
@@ -162,10 +194,11 @@ function App() {
             <Route path='/admin/delivery-boys' element={userData?.role === 'superAdmin' ? <AdminDeliveryBoys /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/revenue' element={userData?.role === 'superAdmin' ? <AdminRevenue /> : <Navigate to="/admin/login" />} />
             
+            {/* ✅ Owner Routes */}
             <Route path='/owner-dashboard' element={userData?.role === 'owner' ? <OwnerDashboard /> : <Navigate to="/signin" />} />
             <Route path='/owner-orders' element={userData?.role === 'owner' ? <OwnerMyOrders /> : <Navigate to="/signin" />} />
             
-            {/* ✅ FIXED: Redirect to /landing if not logged in */}
+            {/* ✅ User Routes */}
             <Route path='/home' element={userData ? <Home /> : <Navigate to={"/landing"} />} />
             <Route path='/restaurants' element={userData ? <Restaurants /> : <Navigate to={"/landing"} />} />
             <Route path='/create-edit-shop' element={userData ? <CreateEditShop /> : <Navigate to={"/landing"} />} />
@@ -180,8 +213,26 @@ function App() {
             <Route path='/track-order/:orderId' element={userData ? <TrackOrderPage /> : <Navigate to={"/landing"} />} />
             <Route path='/shop/:shopId' element={userData ? <Shop /> : <Navigate to={"/landing"} />} />
             
-            <Route path='/delivery-earnings' element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />} />
-            <Route path='/delivery-dashboard' element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />} />
+            {/* ✅ DELIVERY BOY ROUTES - All in Components */}
+            <Route 
+              path='/delivery-dashboard' 
+              element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />} 
+            />
+            <Route 
+              path='/delivery-orders' 
+              element={userData?.role === 'deliveryBoy' ? <DeliveryBoyOrders /> : <Navigate to="/landing" />} 
+            />
+            <Route 
+              path='/delivery-profile' 
+              element={userData?.role === 'deliveryBoy' ? <DeliveryBoyProfile /> : <Navigate to="/landing" />} 
+            />
+            <Route 
+              path='/delivery-earnings' 
+              element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />} 
+            />
+            
+            {/* ✅ Fallback */}
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>
         {showFooter && <Footer />}

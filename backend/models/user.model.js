@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema({
         default: null
     },
 
+    // ✅ Delivery Boy Rating
     deliveryBoyRating: {
         average: {
             type: Number,
@@ -33,7 +34,26 @@ const userSchema = new mongoose.Schema({
             default: 0
         }
     },
-     isApproved: {
+    
+    // ✅ ✅ ✅ ADD THESE FIELDS - MISSING!
+    earnings: {
+        type: Number,
+        default: 0
+    },
+    totalDeliveries: {
+        type: Number,
+        default: 0
+    },
+    completionRate: {
+        type: Number,
+        default: 0
+    },
+    ratePerDelivery: {
+        type: Number,
+        default: 50
+    },
+
+    isApproved: {
         type: Boolean,
         default: false  // Owners & Delivery Boys need approval
     },
@@ -50,14 +70,12 @@ const userSchema = new mongoose.Schema({
         default: null
     },
     
-    // ✅ Existing role field (update enum)
     role: {
         type: String,
         enum: ["user", "owner", "deliveryBoy", "superAdmin"],
         required: true
     },
     
-    // ✅ ADD THESE FIELDS FOR EMAIL VERIFICATION
     isEmailVerified: {
         type: Boolean,
         default: false
@@ -71,7 +89,6 @@ const userSchema = new mongoose.Schema({
         default: null
     },
     
-    // Existing fields...
     resetOtp: {
         type: String
     },
@@ -83,7 +100,7 @@ const userSchema = new mongoose.Schema({
         type: Date
     },
 
-     loginOtp: {
+    loginOtp: {
         type: String,
         default: null
     },
@@ -96,6 +113,10 @@ const userSchema = new mongoose.Schema({
         type: String
     },
     isOnline: {
+        type: Boolean,
+        default: false
+    },
+    isBusy: {  // ✅ ADD THIS TOO - for delivery boy busy status
         type: Boolean,
         default: false
     },

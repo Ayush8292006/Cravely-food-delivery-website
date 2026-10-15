@@ -4,7 +4,7 @@ import uploadOnCloudinary from "../utils/cloudinary.js"
 import DeliveryAssignment from "../models/deliveryAssignment.model.js"
 
 // ============================================
-// GET CURRENT USER
+// ✅ GET CURRENT USER
 // ============================================
 export const getCurrentUser = async (req, res) => {
     try {
@@ -12,7 +12,7 @@ export const getCurrentUser = async (req, res) => {
         if (!userId) {
             return res.status(400).json({ message: "userId is not found" })
         }
-        const user = await User.findById(userId)
+        const user = await User.findById(userId).select('-password -resetOtp -loginOtp -emailVerificationToken')
         if (!user) {
             return res.status(400).json({ message: "user is not found" })
         }
@@ -23,16 +23,14 @@ export const getCurrentUser = async (req, res) => {
 }
 
 // ============================================
-// UPDATE USER LOCATION
+// ✅ UPDATE USER LOCATION
 // ============================================
 export const updateUserLocation = async (req, res) => {
     try {
         const { lat, lon } = req.body
-        
         if (!lat || !lon) {
             return res.status(400).json({ message: "Latitude and longitude are required" })
         }
-
         const user = await User.findByIdAndUpdate(req.userId, {
             location: {
                 type: 'Point',
@@ -44,7 +42,6 @@ export const updateUserLocation = async (req, res) => {
         if (!user) {
             return res.status(400).json({ message: "User not found" })
         }
-
         return res.status(200).json({ message: 'Location updated successfully' })
     } catch (error) {
         return res.status(500).json({ message: `update location error ${error}` })
@@ -52,17 +49,15 @@ export const updateUserLocation = async (req, res) => {
 }
 
 // ============================================
-// GET PROFILE
+// ✅ GET PROFILE
 // ============================================
 export const getProfile = async (req, res) => {
     try {
         const user = await User.findById(req.userId)
             .select('-password -resetOtp -loginOtp -emailVerificationToken -socketId')
-        
         if (!user) {
             return res.status(400).json({ message: "User not found" })
         }
-
         return res.status(200).json(user)
     } catch (error) {
         return res.status(500).json({ message: `Get profile error: ${error.message}` })
@@ -70,20 +65,17 @@ export const getProfile = async (req, res) => {
 }
 
 // ============================================
-// UPDATE PROFILE
+// ✅ UPDATE PROFILE
 // ============================================
 export const updateProfile = async (req, res) => {
     try {
         const { fullName, mobile, email } = req.body
-        
         const user = await User.findById(req.userId)
         if (!user) {
             return res.status(400).json({ message: "User not found" })
         }
-
         if (fullName) user.fullName = fullName
         if (mobile) user.mobile = mobile
-        
         if (email && email !== user.email) {
             const existingUser = await User.findOne({ email })
             if (existingUser) {
@@ -92,246 +84,229 @@ export const updateProfile = async (req, res) => {
             user.email = email
             user.isEmailVerified = false
         }
-
         await user.save()
-
-        return res.status(200).json({
-            message: "Profile updated successfully",
-            user: user
-        })
+        return res.status(200).json({ message: "Profile updated successfully", user: user })
     } catch (error) {
         return res.status(500).json({ message: `Update profile error: ${error.message}` })
     }
 }
 
 // ============================================
-// CHANGE PASSWORD
+// ✅ SET PASSWORD
 // ============================================
-export const changePassword = async (req, res) => {
+export const setPassword = async (req, res) => {
     try {
-        const { currentPassword, newPassword } = req.body
-
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({ message: "Current password and new password are required" })
+        const { newPassword } = req.body
+        if (!newPassword) {
+            return res.status(400).json({ message: "New password is required" })
         }
-
         if (newPassword.length < 6) {
-            return res.status(400).json({ message: "New password must have at least 6 characters" })
+            return res.status(400).json({ message: "Password must have at least 6 characters" })
         }
-
         const user = await User.findById(req.userId)
         if (!user) {
             return res.status(400).json({ message: "User not found" })
         }
-
-        const isMatch = await bcrypt.compare(currentPassword, user.password)
-        if (!isMatch) {
-            return res.status(400).json({ message: "Current password is incorrect" })
+        if (user.password) {
+            return res.status(400).json({ message: "You already have a password set. Use change password instead." })
         }
-
         const hashedPassword = await bcrypt.hash(newPassword, 10)
         user.password = hashedPassword
         await user.save()
-
-        return res.status(200).json({ message: "Password changed successfully" })
+        return res.status(200).json({ message: "Password set successfully!" })
     } catch (error) {
-        return res.status(500).json({ message: `Change password error: ${error.message}` })
+        console.log("❌ Set password error:", error.message)
+        return res.status(500).json({ message: `Set password error: ${error.message}` })
     }
 }
 
 // ============================================
-// UPLOAD PROFILE PHOTO
+// ✅ GET USER ORDERS
 // ============================================
-export const uploadProfilePhoto = async (req, res) => {
+export const getUserOrders = async (req, res) => {
+    try {
+        const userId = req.userId
+        const orders = await Order.find({ user: userId })
+            .populate('shopOrders.shop')
+            .populate('shopOrders.shopOrderItems.item')
+            .sort({ createdAt: -1 })
+        return res.status(200).json(orders)
+    } catch (error) {
+        return res.status(500).json({ message: error.message })
+    }
+}
+
+// ============================================
+// ✅ GET USER BY ID
+// ============================================
+export const getUserById = async (req, res) => {
+    try {
+        const { id } = req.params
+        const user = await User.findById(id).select('-password')
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' })
+        }
+        return res.status(200).json(user)
+    } catch (error) {
+        return res.status(500).json({ message: error.message })
+    }
+}
+
+// ============================================
+// ✅ REGISTER
+// ============================================
+export const register = async (req, res) => {
+    try {
+        const { fullName, email, password, role, mobile } = req.body
+        const existingUser = await User.findOne({ email })
+        if (existingUser) {
+            return res.status(400).json({ message: "User already exists" })
+        }
+        const hashedPassword = await bcrypt.hash(password, 10)
+        const user = await User.create({
+            fullName,
+            email,
+            password: hashedPassword,
+            mobile,
+            role: role || 'user',
+            isApproved: role === 'deliveryBoy' ? false : true,
+            location: { type: 'Point', coordinates: [0, 0] },
+            isOnline: false,
+            isBusy: false
+        })
+        return res.status(201).json({ success: true, message: "Registration successful", user })
+    } catch (error) {
+        return res.status(500).json({ message: error.message })
+    }
+}
+
+// ============================================
+// ✅ LOGIN
+// ============================================
+export const login = async (req, res) => {
+    try {
+        const { email, password } = req.body
+        const user = await User.findOne({ email })
+        if (!user) {
+            return res.status(400).json({ message: "User not found" })
+        }
+        const isMatch = await bcrypt.compare(password, user.password)
+        if (!isMatch) {
+            return res.status(400).json({ message: "Invalid credentials" })
+        }
+        // Generate token and set cookie (you need to implement this)
+        return res.status(200).json({ success: true, message: "Login successful", user })
+    } catch (error) {
+        return res.status(500).json({ message: error.message })
+    }
+}
+
+// ============================================
+// ✅ UPLOAD AVATAR
+// ============================================
+export const uploadAvatar = async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: "Please upload a photo" })
         }
-
         const imageUrl = await uploadOnCloudinary(req.file.path)
         if (!imageUrl) {
             return res.status(400).json({ message: "Failed to upload photo" })
         }
-
         const user = await User.findById(req.userId)
         if (!user) {
             return res.status(400).json({ message: "User not found" })
         }
-
         user.profilePhoto = imageUrl
         await user.save()
-
-        return res.status(200).json({
-            message: "Profile photo updated successfully",
-            profilePhoto: imageUrl
-        })
+        return res.status(200).json({ message: "Profile photo updated successfully", profilePhoto: imageUrl })
     } catch (error) {
         return res.status(500).json({ message: `Upload photo error: ${error.message}` })
     }
 }
 
 // ============================================
-// ADDRESS FUNCTIONS
+// ✅ GET DELIVERY BOY STATS
 // ============================================
-export const addAddress = async (req, res) => {
-    try {
-        const { type, label, text, latitude, longitude } = req.body
-
-        if (!text || !latitude || !longitude) {
-            return res.status(400).json({ message: "Address fields required" })
-        }
-
-        const user = await User.findById(req.userId)
-        if (!user) {
-            return res.status(400).json({ message: "User not found" })
-        }
-
-        const isDefault = user.addresses.length === 0
-
-        const newAddress = {
-            type: type || 'home',
-            label: label || 'Home',
-            text,
-            latitude,
-            longitude,
-            isDefault
-        }
-
-        user.addresses.push(newAddress)
-        await user.save()
-
-        return res.status(201).json(user.addresses)
-    } catch (error) {
-        return res.status(500).json({ message: `add address error ${error.message}` })
-    }
-}
-
-export const getAddresses = async (req, res) => {
-    try {
-        const user = await User.findById(req.userId)
-        if (!user) {
-            return res.status(400).json({ message: "User not found" })
-        }
-
-        return res.status(200).json(user.addresses)
-    } catch (error) {
-        return res.status(500).json({ message: `get addresses error ${error.message}` })
-    }
-}
-
-export const setDefaultAddress = async (req, res) => {
-    try {
-        const { addressId } = req.params
-
-        const user = await User.findById(req.userId)
-        if (!user) {
-            return res.status(400).json({ message: "User not found" })
-        }
-
-        user.addresses.forEach(addr => addr.isDefault = false)
-
-        const address = user.addresses.id(addressId)
-        if (!address) {
-            return res.status(400).json({ message: "Address not found" })
-        }
-
-        address.isDefault = true
-        await user.save()
-
-        return res.status(200).json(user.addresses)
-    } catch (error) {
-        return res.status(500).json({ message: `set default address error ${error.message}` })
-    }
-}
-
-export const deleteAddress = async (req, res) => {
-    try {
-        const { addressId } = req.params
-
-        const user = await User.findById(req.userId)
-        if (!user) {
-            return res.status(400).json({ message: "User not found" })
-        }
-
-        const address = user.addresses.id(addressId)
-        if (!address) {
-            return res.status(400).json({ message: "Address not found" })
-        }
-
-        if (address.isDefault && user.addresses.length > 1) {
-            const remainingAddresses = user.addresses.filter(a => a._id.toString() !== addressId)
-            if (remainingAddresses.length > 0) {
-                remainingAddresses[0].isDefault = true
-            }
-        }
-
-        address.deleteOne()
-        await user.save()
-
-        return res.status(200).json(user.addresses)
-    } catch (error) {
-        return res.status(500).json({ message: `delete address error ${error.message}` })
-    }
-}
-
 // ============================================
-// WISHLIST FUNCTIONS
+// ✅ GET DELIVERY BOY STATS
 // ============================================
-export const toggleWishlist = async (req, res) => {
+// ============================================
+// ✅ GET DELIVERY BOY STATS - FIXED
+// ============================================
+export const getDeliveryBoyStats = async (req, res) => {
     try {
-        const { itemId } = req.body
+        const { id } = req.params
+        
+        console.log("📊 Fetching delivery boy stats for ID:", id)
+        console.log("👤 Current user ID:", req.userId)
+        
+        // ✅ Check if ID is provided
+        if (!id) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Delivery boy ID is required" 
+            })
+        }
 
-        const user = await User.findById(req.userId)
+        // ✅ Check if user exists
+        const user = await User.findById(id)
+            .select('fullName email mobile totalDeliveries earnings deliveryBoyRating completionRate ratePerDelivery isApproved isOnline isBusy location role')
+
         if (!user) {
-            return res.status(400).json({ message: "User not found" })
+            return res.status(404).json({ 
+                success: false, 
+                message: "User not found" 
+            })
         }
 
-        const index = user.wishlist.indexOf(itemId)
-        if (index === -1) {
-            user.wishlist.push(itemId)
-        } else {
-            user.wishlist.splice(index, 1)
+        // ✅ Check if user is a delivery boy
+        if (user.role !== 'deliveryBoy') {
+            return res.status(400).json({ 
+                success: false, 
+                message: "User is not a delivery boy" 
+            })
         }
 
-        await user.save()
-        return res.status(200).json({ 
-            wishlist: user.wishlist,
-            isWishlisted: index === -1
+        return res.status(200).json({
+            success: true,
+            totalDeliveries: user.totalDeliveries || 0,
+            totalEarning: user.earnings || 0,
+            deliveryBoyRating: user.deliveryBoyRating || { average: 0, count: 0 },
+            completionRate: user.completionRate || 0,
+            ratePerDelivery: user.ratePerDelivery || 50,
+            fullName: user.fullName,
+            email: user.email,
+            mobile: user.mobile,
+            isApproved: user.isApproved,
+            isOnline: user.isOnline || false,
+            isBusy: user.isBusy || false
         })
     } catch (error) {
-        return res.status(500).json({ message: `toggle wishlist error ${error.message}` })
-    }
-}
-
-export const getWishlist = async (req, res) => {
-    try {
-        const user = await User.findById(req.userId).populate('wishlist')
-        if (!user) {
-            return res.status(400).json({ message: "User not found" })
-        }
-
-        return res.status(200).json(user.wishlist)
-    } catch (error) {
-        return res.status(500).json({ message: `get wishlist error ${error.message}` })
+        console.log("❌ Get delivery boy stats error:", error.message)
+        return res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        })
     }
 }
 
 // ============================================
-// GET NEARBY DELIVERY BOYS - ✅ ADD THIS
+// ✅ GET NEARBY DELIVERY BOYS
 // ============================================
 export const getNearbyDeliveryBoys = async (req, res) => {
     try {
         const { lat, lon, radius = 15 } = req.query
 
+        console.log("🔍 Finding delivery boys near:", { lat, lon, radius })
+
         if (!lat || !lon) {
             return res.status(400).json({ 
+                success: false,
                 message: "Latitude and longitude are required" 
             })
         }
 
-        console.log(`🔍 Finding delivery boys near: ${lat}, ${lon} (radius: ${radius}km)`)
-
-        // ✅ Find delivery boys within radius
         const deliveryBoys = await User.find({
             role: 'deliveryBoy',
             isApproved: true,
@@ -352,7 +327,7 @@ export const getNearbyDeliveryBoys = async (req, res) => {
 
         console.log(`📦 Found ${deliveryBoys.length} delivery boys nearby`)
 
-        // ✅ Check which delivery boys are busy
+        // ✅ Check which boys are busy
         const busyBoyIds = await DeliveryAssignment.find({
             assignedTo: { $in: deliveryBoys.map(b => b._id) },
             status: { $in: ['assigned', 'broadcasted'] }
@@ -360,13 +335,11 @@ export const getNearbyDeliveryBoys = async (req, res) => {
 
         const busySet = new Set(busyBoyIds.map(id => id.toString()))
 
-        // ✅ Format response with isBusy flag
         const formattedBoys = deliveryBoys.map(boy => {
             const boyObj = boy.toObject()
             return {
                 ...boyObj,
                 isBusy: busySet.has(boy._id.toString()),
-                // ✅ Remove sensitive fields
                 password: undefined,
                 resetOtp: undefined,
                 loginOtp: undefined,
@@ -374,69 +347,16 @@ export const getNearbyDeliveryBoys = async (req, res) => {
             }
         })
 
-        return res.status(200).json(formattedBoys)
+        return res.status(200).json({
+            success: true,
+            deliveryBoys: formattedBoys,
+            count: formattedBoys.length
+        })
     } catch (error) {
         console.log("❌ Get nearby delivery boys error:", error.message)
         return res.status(500).json({ 
+            success: false,
             message: `Get nearby delivery boys error: ${error.message}` 
         })
-    }
-}
-
-// ============================================
-// UPDATE DELIVERY BOY STATUS (Online/Offline)
-// ============================================
-export const updateDeliveryBoyStatus = async (req, res) => {
-    try {
-        const { isOnline } = req.body
-        
-        const user = await User.findByIdAndUpdate(req.userId, {
-            isOnline: isOnline !== undefined ? isOnline : true
-        }, { returnDocument: 'after' })
-
-        if (!user) {
-            return res.status(400).json({ message: "User not found" })
-        }
-
-        return res.status(200).json({
-            message: `Status updated to ${user.isOnline ? 'Online' : 'Offline'}`,
-            isOnline: user.isOnline
-        })
-    } catch (error) {
-        return res.status(500).json({ message: `Update status error: ${error.message}` })
-    }
-}
-
-// ============================================
-// GET DELIVERY BOY DETAILS
-// ============================================
-export const getDeliveryBoyDetails = async (req, res) => {
-    try {
-        const { deliveryBoyId } = req.params
-
-        const deliveryBoy = await User.findById(deliveryBoyId)
-            .select('fullName email mobile location isOnline isBusy deliveryBoyRating profilePhoto updatedAt')
-        
-        if (!deliveryBoy) {
-            return res.status(400).json({ message: "Delivery boy not found" })
-        }
-
-        if (deliveryBoy.role !== 'deliveryBoy') {
-            return res.status(400).json({ message: "User is not a delivery boy" })
-        }
-
-        // ✅ Check if currently busy
-        const busyAssignment = await DeliveryAssignment.findOne({
-            assignedTo: deliveryBoyId,
-            status: { $in: ['assigned', 'broadcasted'] }
-        })
-
-        const result = deliveryBoy.toObject()
-        result.isBusy = !!busyAssignment
-        result.currentAssignment = busyAssignment || null
-
-        return res.status(200).json(result)
-    } catch (error) {
-        return res.status(500).json({ message: `Get delivery boy error: ${error.message}` })
     }
 }

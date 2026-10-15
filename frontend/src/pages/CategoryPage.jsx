@@ -5,7 +5,8 @@ import {
     FaArrowLeft, FaUtensils, FaFire, FaStar, FaClock,
     FaArrowRight, FaTimes, FaFilter, FaTag, FaLeaf,
     FaDrumstickBite, FaMotorcycle, FaSearch, FaHeart,
-    FaShoppingBag, FaRocket, FaGem, FaCrown
+    FaShoppingBag, FaRocket, FaGem, FaCrown,
+    FaExclamationTriangle
 } from "react-icons/fa";
 import { motion } from 'framer-motion';
 import FoodCard from '../components/FoodCard';
@@ -20,6 +21,7 @@ function CategoryPage() {
     const [loading, setLoading] = useState(true)
     const [isLoaded, setIsLoaded] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
+    const [error, setError] = useState(null)
 
     const decodedCategory = decodeURIComponent(categoryName || '')
 
@@ -28,21 +30,40 @@ function CategoryPage() {
     }, [])
 
     useEffect(() => {
-        if (itemsInMyCity && decodedCategory) {
+        setLoading(true)
+        setError(null)
+        
+        try {
+            // ✅ Safe access with fallback
+            const itemsArray = itemsInMyCity || []
+            
+            if (!decodedCategory) {
+                setItems([])
+                setLoading(false)
+                return
+            }
+
             let filteredItems = []
-            if (decodedCategory === 'All') {
-                filteredItems = itemsInMyCity
+            if (decodedCategory === 'All' || decodedCategory === 'all') {
+                filteredItems = itemsArray
             } else {
-                filteredItems = itemsInMyCity.filter(item => item.category === decodedCategory)
+                filteredItems = itemsArray.filter(item => 
+                    item?.category?.toLowerCase() === decodedCategory.toLowerCase()
+                )
             }
             setItems(filteredItems)
+            setLoading(false)
+        } catch (err) {
+            console.log("Category filter error:", err)
+            setError("Failed to load items")
+            setItems([])
             setLoading(false)
         }
     }, [itemsInMyCity, decodedCategory])
 
-    // ✅ Search filter
+    // ✅ Search filter with safe access
     const filteredItems = items.filter(item => 
-        item.name?.toLowerCase().includes(searchTerm.toLowerCase())
+        item?.name?.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
     const fadeUp = `transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`
@@ -70,7 +91,7 @@ function CategoryPage() {
         }
     }
 
-    // ✅ Get category icon
+    // ✅ Get category icon with more categories and fallback
     const getCategoryIcon = () => {
         const icons = {
             'Pizza': '🍕',
@@ -82,15 +103,35 @@ function CategoryPage() {
             'Desserts': '🍰',
             'Snacks': '🍿',
             'Fast Food': '🌭',
-            'All': '🍽️'
+            'Main Course': '🍲',
+            'Others': '🍽️',
+            'All': '🍽️',
+            'all': '🍽️'
         }
         return icons[decodedCategory] || '🍽️'
+    }
+
+    // ✅ Get category color
+    const getCategoryColor = () => {
+        const colors = {
+            'Pizza': 'text-red-400',
+            'Burgers': 'text-orange-400',
+            'Sandwiches': 'text-yellow-400',
+            'South Indian': 'text-green-400',
+            'North Indian': 'text-orange-500',
+            'Chinese': 'text-red-500',
+            'Desserts': 'text-pink-400',
+            'Snacks': 'text-blue-400',
+            'Fast Food': 'text-yellow-500',
+            'Main Course': 'text-purple-400'
+        }
+        return colors[decodedCategory] || 'text-white/60'
     }
 
     return (
         <div className='min-h-screen bg-[#0a0a0f] relative overflow-hidden'>
             
-            {/* ✅ Premium Animated Background Orbs */}
+            {/* Background Orbs */}
             <div className='absolute inset-0 pointer-events-none'>
                 <motion.div 
                     animate={{ x: [0, 80, -40, 0], y: [0, -40, 60, 0] }}
@@ -113,7 +154,7 @@ function CategoryPage() {
 
             <div className='relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pt-[80px] sm:pt-[90px]'>
                 
-                {/* ✅ Premium Header */}
+                {/* Header */}
                 <motion.div 
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -152,7 +193,7 @@ function CategoryPage() {
                     </div>
                 </motion.div>
 
-                {/* ✅ Search Bar - Premium */}
+                {/* Search Bar */}
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -180,7 +221,25 @@ function CategoryPage() {
                     )}
                 </motion.div>
 
-                {/* ✅ Loading State */}
+                {/* ✅ Error State */}
+                {error && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className='glass-premium-ultra p-6 rounded-2xl border border-red-500/20 text-center mb-6'
+                    >
+                        <FaExclamationTriangle size={28} className='text-red-400 mx-auto mb-2' />
+                        <p className='text-white/70 text-sm'>{error}</p>
+                        <button 
+                            onClick={() => navigate('/home')}
+                            className='mt-2 px-4 py-1.5 rounded-lg bg-[#ff2d55]/20 text-[#ff2d55] text-sm hover:bg-[#ff2d55]/30 transition'
+                        >
+                            Go Home
+                        </button>
+                    </motion.div>
+                )}
+
+                {/* Loading State */}
                 {loading ? (
                     <div className='flex flex-col items-center justify-center py-24 sm:py-32'>
                         <div className='relative'>
@@ -194,7 +253,7 @@ function CategoryPage() {
                         </p>
                     </div>
                 ) : filteredItems.length > 0 ? (
-                    /* ✅ Premium Items Grid - NO HOVER RATING CHANGE */
+                    /* Items Grid */
                     <motion.div 
                         variants={containerVariants}
                         initial="hidden"
@@ -208,13 +267,12 @@ function CategoryPage() {
                                 className='animate-float-up'
                                 style={{ animationDelay: `${0.05 * index}s` }}
                             >
-                                {/* ✅ FoodCard - Rating is FIXED, no hover change */}
                                 <FoodCard data={item} />
                             </motion.div>
                         ))}
                     </motion.div>
                 ) : (
-                    /* ✅ Premium Empty State */
+                    /* Empty State */
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}

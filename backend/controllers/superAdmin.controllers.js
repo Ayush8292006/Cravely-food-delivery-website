@@ -46,6 +46,7 @@ export const getDashboardStats = async (req, res) => {
             }
         })
     } catch (error) {
+        console.log("❌ Dashboard stats error:", error.message)
         return res.status(500).json({ message: error.message })
     }
 }
@@ -125,25 +126,33 @@ export const approveShop = async (req, res) => {
         const { shopId } = req.params
         const { isApproved } = req.body
         
-        console.log("🔍 Approving shop:", shopId, "Status:", isApproved)
-        
         const shop = await Shop.findById(shopId)
         if (!shop) {
             return res.status(400).json({ message: "Shop not found" })
         }
         
-        // ✅ Update shop approval
         shop.isApproved = isApproved !== undefined ? isApproved : true
         shop.approvedBy = req.userId
         shop.approvedAt = shop.isApproved ? new Date() : null
         await shop.save()
         
-        // ✅ Update owner's approval status
-        await User.findByIdAndUpdate(shop.owner, { 
-            isApproved: shop.isApproved 
-        })
+        // ✅ Only approve owner if shop is approved
+        if (shop.isApproved) {
+            await User.findByIdAndUpdate(shop.owner, { isApproved: true })
+        }
+        
+        // ✅ Emit socket event for real-time update
+        const owner = await User.findById(shop.owner)
+        if (owner?.socketId && req.io) {
+            req.io.to(owner.socketId).emit('shop-approved', {
+                shopId: shop._id,
+                shop: shop,
+                message: `Your shop "${shop.name}" has been approved!`
+            })
+        }
         
         return res.status(200).json({ 
+            success: true,
             message: `Shop ${shop.isApproved ? 'approved' : 'rejected'} successfully`,
             shop
         })
@@ -258,56 +267,164 @@ export const getRevenueReport = async (req, res) => {
 }
 
 // ============================================
-// GET DELIVERY BOYS (Pending & All)
+// ✅ FIXED: GET DELIVERY BOYS (Pending & All)
 // ============================================
 export const getDeliveryBoys = async (req, res) => {
     try {
         const { status = 'all' } = req.query
         
         let filter = { role: 'deliveryBoy' }
+        
+        // ✅ Fixed: Proper status filtering
         if (status === 'pending') {
             filter.isApproved = false
         } else if (status === 'approved') {
             filter.isApproved = true
         }
+        // 'all' - don't add isApproved filter
         
         const deliveryBoys = await User.find(filter)
-            .select('fullName email mobile isApproved createdAt location')
+            .select('fullName email mobile isApproved isOnline isBusy createdAt location profilePhoto')
             .sort({ createdAt: -1 })
         
-        return res.status(200).json(deliveryBoys)
+        return res.status(200).json({
+            success: true,
+            deliveryBoys,
+            count: deliveryBoys.length
+        })
     } catch (error) {
-        return res.status(500).json({ message: error.message })
+        console.log("❌ Get delivery boys error:", error.message)
+        return res.status(500).json({ 
+            success: false,
+            message: error.message 
+        })
     }
 }
 
 // ============================================
-// APPROVE DELIVERY BOY
+// ✅ FIXED: APPROVE/REJECT DELIVERY BOY
 // ============================================
 export const approveDeliveryBoy = async (req, res) => {
     try {
         const { userId } = req.params
+        // ✅ isApproved can be true or false
         const { isApproved } = req.body
-        
+
+        // ✅ Validate input
+        if (isApproved === undefined) {
+            return res.status(400).json({ 
+                success: false,
+                message: "isApproved is required" 
+            })
+        }
+
         const user = await User.findById(userId)
         if (!user) {
-            return res.status(400).json({ message: "User not found" })
+            return res.status(404).json({ 
+                success: false,
+                message: "User not found" 
+            })
         }
-        
+
+        // ✅ Check if user is a delivery boy
         if (user.role !== 'deliveryBoy') {
-            return res.status(400).json({ message: "User is not a delivery boy" })
+            return res.status(400).json({ 
+                success: false,
+                message: "User is not a delivery boy" 
+            })
         }
-        
+
+        // ✅ Update approval status
         user.isApproved = isApproved
         user.approvedBy = req.userId
         user.approvedAt = isApproved ? new Date() : null
         await user.save()
-        
+
+        // ✅ Emit socket event for real-time update
+        if (user.socketId && req.io) {
+            req.io.to(user.socketId).emit('account-approved', {
+                userId: user._id,
+                isApproved: user.isApproved,
+                message: isApproved 
+                    ? '🎉 Your delivery boy account has been approved!' 
+                    : 'Your delivery boy account has been rejected.'
+            })
+        }
+
         return res.status(200).json({ 
+            success: true,
             message: `Delivery boy ${isApproved ? 'approved' : 'rejected'} successfully`,
-            user
+            user: {
+                _id: user._id,
+                fullName: user.fullName,
+                email: user.email,
+                isApproved: user.isApproved,
+                role: user.role
+            }
         })
     } catch (error) {
-        return res.status(500).json({ message: error.message })
+        console.log("❌ Approve delivery boy error:", error.message)
+        return res.status(500).json({ 
+            success: false,
+            message: error.message 
+        })
+    }
+}
+
+// ============================================
+// ✅ NEW: GET PENDING DELIVERY BOYS COUNT
+// ============================================
+export const getPendingDeliveryBoysCount = async (req, res) => {
+    try {
+        const count = await User.countDocuments({
+            role: 'deliveryBoy',
+            isApproved: false
+        })
+        
+        return res.status(200).json({
+            success: true,
+            count
+        })
+    } catch (error) {
+        return res.status(500).json({ 
+            success: false,
+            message: error.message 
+        })
+    }
+}
+
+// ============================================
+// ✅ NEW: GET DELIVERY BOY BY ID
+// ============================================
+export const getDeliveryBoyById = async (req, res) => {
+    try {
+        const { userId } = req.params
+        
+        const deliveryBoy = await User.findById(userId)
+            .select('fullName email mobile isApproved isOnline isBusy createdAt location profilePhoto deliveryBoyRating')
+        
+        if (!deliveryBoy) {
+            return res.status(404).json({ 
+                success: false,
+                message: "Delivery boy not found" 
+            })
+        }
+
+        if (deliveryBoy.role !== 'deliveryBoy') {
+            return res.status(400).json({ 
+                success: false,
+                message: "User is not a delivery boy" 
+            })
+        }
+
+        return res.status(200).json({
+            success: true,
+            deliveryBoy
+        })
+    } catch (error) {
+        return res.status(500).json({ 
+            success: false,
+            message: error.message 
+        })
     }
 }

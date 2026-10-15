@@ -1,229 +1,326 @@
 import React, { useEffect, useState } from 'react'
 import { IoArrowBack } from "react-icons/io5";
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { MdRemoveShoppingCart } from "react-icons/md";
-import { FaShoppingCart, FaArrowRight, FaTruck, FaGift, FaTags, FaCrown, FaMotorcycle } from "react-icons/fa";
+import { 
+    FaShoppingCart, FaArrowRight, FaTruck, FaTags,
+    FaExclamationTriangle, FaTrashAlt, FaGift
+} from "react-icons/fa";
 import CartItemcard from '../components/CartItemcard';
-import { motion } from 'framer-motion';  // ✅ ADD THIS IMPORT
+import { motion } from 'framer-motion';
+import { toast } from 'react-toastify';
+import { removeCartItem, updateQuantity, clearCart } from '../redux/userSlice';
+
 function CartPage() {
     const navigate = useNavigate()
+    const dispatch = useDispatch()
+    
     const { cartItems, totalAmount } = useSelector(state => state.user)
     const [isLoaded, setIsLoaded] = useState(false)
 
-    // ✅ Delivery Fee Logic - ₹199 threshold
+    useEffect(() => {
+        setTimeout(() => setIsLoaded(true), 200)
+    }, [])
+
+    // ✅ Constants
     const DELIVERY_THRESHOLD = 199
     const DELIVERY_FEE = 30
-    const deliveryFee = totalAmount >= DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE
-    const amountNeededForFreeDelivery = Math.max(0, DELIVERY_THRESHOLD - totalAmount)
-    const grandTotal = totalAmount + deliveryFee
-    const itemCount = cartItems?.length || 0
-    const progressPercent = Math.min(100, (totalAmount / DELIVERY_THRESHOLD) * 100)
-
-    useEffect(() => {
-        setTimeout(() => setIsLoaded(true), 300)
-    }, [])
+    const MIN_ORDER_AMOUNT = 50
+    const TAX_AMOUNT = 23 // ✅ Fixed tax ₹23
+    
+    const items = cartItems || []
+    const total = totalAmount || 0
+    const itemCount = items.length
+    
+    const deliveryFee = total >= DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE
+    const amountNeededForFreeDelivery = Math.max(0, DELIVERY_THRESHOLD - total)
+    const grandTotal = total + deliveryFee + TAX_AMOUNT // ✅ Added tax
+    const progressPercent = Math.min(100, (total / DELIVERY_THRESHOLD) * 100)
+    const isOrderValid = total >= MIN_ORDER_AMOUNT && itemCount > 0
 
     const fadeUp = `transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`
 
-    return (
-        <div className='min-h-screen bg-[#0a0a0f] relative overflow-hidden'>
-            
-            {/* ✅ Animated Background Orbs */}
-            <div className='absolute inset-0 pointer-events-none'>
-                <div className='absolute -top-40 -left-40 w-[500px] h-[500px] bg-[#ff2d55]/8 rounded-full blur-3xl animate-pulse' />
-                <div className='absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-[#ff6b35]/8 rounded-full blur-3xl animate-pulse animation-delay-300' />
-                <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#ffd93d]/5 rounded-full blur-3xl animate-pulse animation-delay-600' />
-            </div>
+    const handleCheckout = () => {
+        if (!isOrderValid) {
+            toast.warning(`Minimum order amount is ₹${MIN_ORDER_AMOUNT}`)
+            return
+        }
+        navigate("/checkout")
+    }
 
-            <div className='relative z-10 max-w-4xl mx-auto px-4 py-8'>
+    const handleRemoveItem = (itemId) => {
+        dispatch(removeCartItem(itemId))
+        toast.info('Item removed from cart')
+    }
+
+    const handleQuantityUpdate = (itemId, newQuantity) => {
+        if (newQuantity < 1) {
+            dispatch(removeCartItem(itemId))
+            return
+        }
+        dispatch(updateQuantity({ id: itemId, quantity: newQuantity }))
+    }
+
+    const clearCartItems = () => {
+        if (items.length > 0) {
+            dispatch(clearCart())
+            toast.info('Cart cleared')
+        }
+    }
+
+    return (
+        <div className='min-h-screen bg-white relative'>
+            {/* Top accent bar */}
+            <div className='h-1.5 w-full bg-gradient-to-r from-orange-500 via-orange-400 to-amber-400' />
+
+            <div className='relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10'>
                 
-                {/* ✅ Header */}
+                {/* Header */}
                 <div className={`flex items-center gap-4 mb-8 ${fadeUp}`}>
                     <motion.button 
-                        whileHover={{ scale: 1.05, rotate: -5 }}
+                        whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className='w-11 h-11 rounded-xl bg-gradient-to-br from-[#1a1a2e] to-[#12121f] flex items-center justify-center hover:bg-white/10 transition-all duration-300 border border-white/10 group shadow-lg shadow-black/20'
+                        className='w-11 h-11 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-center hover:bg-orange-100 transition-all duration-300 shadow-sm'
                         onClick={() => navigate("/")}
                     >
-                        <IoArrowBack size={20} className='text-white/60 group-hover:text-white transition' />
+                        <IoArrowBack size={20} className='text-orange-600 font-bold' />
                     </motion.button>
-                    <div>
-                        <h1 className='text-2xl sm:text-3xl font-bold text-white'>Your Cart</h1>
-                        <p className='text-white/40 text-sm'>{itemCount} items in your cart</p>
+
+                    <div className='flex-1'>
+                        <h1 className='text-3xl font-extrabold text-gray-900 tracking-tight'>
+                            Your Cart
+                        </h1>
+                        <p className='text-gray-600 text-sm mt-0.5 font-medium'>
+                            {itemCount} {itemCount === 1 ? 'item' : 'items'} added
+                        </p>
                     </div>
-                    <div className='ml-auto flex items-center gap-3'>
-                        <div className='w-10 h-10 rounded-full bg-gradient-to-br from-[#ff2d55]/20 to-[#ff6b35]/20 flex items-center justify-center'>
-                            <FaShoppingCart className='text-[#ff6b35]' size={18} />
-                        </div>
-                        <span className='text-white font-semibold text-lg'>{itemCount}</span>
-                        {itemCount > 0 && (
-                            <span className='text-[10px] bg-[#ff2d55]/20 text-[#ff2d55] px-2 py-0.5 rounded-full'>Active</span>
-                        )}
+
+                    <div className='flex items-center gap-2.5 bg-orange-50 border border-orange-200 px-4 py-2.5 rounded-2xl shadow-sm'>
+                        <FaShoppingCart className='text-orange-600' size={16} />
+                        <span className='text-orange-700 font-bold text-base'>{itemCount}</span>
                     </div>
                 </div>
 
-                {/* ✅ Cart Content */}
-                {cartItems?.length === 0 ? (
-                    <div className={`flex flex-col items-center justify-center min-h-[60vh] ${fadeUp}`}>
-                        <div className='relative'>
-                            <div className='w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-white/5 flex items-center justify-center border border-white/5'>
-                                <MdRemoveShoppingCart size={60} className="sm:text-[70px] text-white/20" />
-                            </div>
-                            <div className='absolute -top-2 -right-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#ff2d55]/20 flex items-center justify-center animate-pulse'>
-                                <span className='text-[8px] sm:text-[10px] text-[#ff2d55]'>!</span>
-                            </div>
+                {/* Empty State */}
+                {itemCount === 0 ? (
+                    <div className='flex flex-col items-center justify-center min-h-[60vh]'>
+                        <div className='w-32 h-32 rounded-full bg-orange-50 border-2 border-orange-200 flex items-center justify-center'>
+                            <MdRemoveShoppingCart size={56} className="text-orange-300" />
                         </div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-white mt-6 mb-3">
+                        
+                        <h2 className="text-3xl font-bold text-gray-800 mt-6 mb-3">
                             Your Cart is Empty
-                        </h1>
-                        <p className="text-white/40 text-sm sm:text-lg text-center max-w-md">
+                        </h2>
+                        <p className="text-gray-500 text-base text-center max-w-sm leading-relaxed">
                             Looks like you haven't added anything yet.
-                            Start exploring delicious food items and fill your cart!
                         </p>
+                        
                         <motion.button 
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className='mt-6 px-6 sm:px-8 py-3 sm:py-3.5 rounded-full bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white font-medium hover:scale-105 transition-all duration-300 shadow-lg shadow-[#ff2d55]/20 flex items-center gap-2 group'
+                            className='mt-8 px-8 py-3.5 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-base transition-all shadow-lg shadow-orange-200 flex items-center gap-3'
                             onClick={() => navigate('/')}
                         >
                             Browse Restaurants
-                            <FaArrowRight size={14} className='group-hover:translate-x-1 transition-transform duration-300' />
+                            <FaArrowRight size={15} />
                         </motion.button>
                     </div>
                 ) : (
-                    <>
-                        {/* ✅ Delivery Fee Banner - ₹199 threshold */}
-                        <div className={`glass-premium-ultra p-4 sm:p-5 rounded-2xl border border-white/5 mb-6 ${fadeUp}`}>
-                            <div className='flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4'>
-                                <div className='flex items-center gap-3'>
-                                    <div className='w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#ff2d55]/20 to-[#ff6b35]/20 flex items-center justify-center flex-shrink-0'>
-                                        <FaTruck className={`text-lg sm:text-xl ${deliveryFee === 0 ? 'text-green-400' : 'text-[#ff6b35]'}`} />
+                    <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+                        
+                        {/* LEFT SIDE - Items */}
+                        <div className='lg:col-span-2 space-y-5'>
+                            
+                            {/* Min Order Warning */}
+                            {!isOrderValid && (
+                                <motion.div 
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className='rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 flex items-center gap-4 shadow-sm'
+                                >
+                                    <div className='w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0'>
+                                        <FaExclamationTriangle size={18} className="text-amber-600" />
                                     </div>
                                     <div>
-                                        <p className='text-white font-medium text-sm sm:text-base'>
-                                            {deliveryFee === 0 ? '🎉 Free Delivery' : 'Delivery Charges Apply'}
+                                        <p className='text-amber-800 text-sm font-bold'>
+                                            Minimum order amount is ₹{MIN_ORDER_AMOUNT}
                                         </p>
-                                        <p className='text-white/40 text-xs sm:text-sm'>
+                                        <p className='text-amber-600 text-xs font-medium'>
+                                            Add more items to proceed with your order
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* Delivery Banner */}
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`rounded-2xl border-2 p-5 shadow-sm ${
+                                    deliveryFee === 0 
+                                        ? 'border-emerald-300 bg-emerald-50' 
+                                        : 'border-orange-300 bg-orange-50'
+                                }`}
+                            >
+                                <div className='flex items-center gap-4'>
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border-2 ${
+                                        deliveryFee === 0 ? 'border-emerald-300 bg-emerald-100' : 'border-orange-300 bg-orange-100'
+                                    }`}>
+                                        <FaTruck className={deliveryFee === 0 ? 'text-emerald-700' : 'text-orange-700'} size={20} />
+                                    </div>
+                                    <div className='flex-1'>
+                                        <p className={`font-bold text-base ${deliveryFee === 0 ? 'text-emerald-800' : 'text-orange-800'}`}>
+                                            {deliveryFee === 0 ? '🎉 Free Delivery Unlocked!' : '🚚 Delivery Charges Apply'}
+                                        </p>
+                                        <p className='text-gray-700 text-sm font-medium mt-0.5'>
                                             {deliveryFee === 0 
-                                                ? 'You\'ve unlocked free delivery!' 
+                                                ? "You've unlocked free delivery on this order!" 
                                                 : `Add ₹${amountNeededForFreeDelivery} more for free delivery`
                                             }
                                         </p>
-                                    </div>
-                                </div>
-                                <div className='md:ml-auto w-full md:w-auto'>
-                                    <div className='flex items-center gap-3'>
-                                        <div className='flex-1 md:w-32'>
-                                            <div className='w-full h-2 bg-white/10 rounded-full overflow-hidden'>
+                                        
+                                        {/* Progress Bar */}
+                                        <div className='mt-3 flex items-center gap-3'>
+                                            <div className='flex-1 h-3 bg-white rounded-full overflow-hidden border-2 border-orange-200'>
                                                 <motion.div 
-                                                    className='h-full bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] rounded-full'
+                                                    className={`h-full rounded-full ${deliveryFee === 0 ? 'bg-emerald-500' : 'bg-orange-500'}`}
                                                     initial={{ width: 0 }}
                                                     animate={{ width: `${progressPercent}%` }}
-                                                    transition={{ duration: 1, delay: 0.3 }}
+                                                    transition={{ duration: 1, delay: 0.2 }}
                                                 />
                                             </div>
-                                            <p className='text-white/30 text-[8px] sm:text-[10px] mt-1 text-right'>
-                                                {Math.round(progressPercent)}% complete
-                                            </p>
-                                        </div>
-                                        <div className={`text-xs sm:text-sm font-semibold ${deliveryFee === 0 ? 'text-green-400' : 'text-[#ff6b35]'}`}>
-                                            {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+                                            <span className={`text-sm font-bold ${deliveryFee === 0 ? 'text-emerald-700' : 'text-orange-700'}`}>
+                                                {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
+                            </motion.div>
+
+                            {/* Cart Items */}
+                            <div className={`space-y-4 ${fadeUp}`}>
+                                {items.map((item, index) => (
+                                    <motion.div 
+                                        key={item._id || item.id || index}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: index * 0.08 }}
+                                    >
+                                        <CartItemcard 
+                                            data={item} 
+                                            onRemove={() => handleRemoveItem(item._id || item.id)}
+                                            onQuantityChange={(newQty) => handleQuantityUpdate(item._id || item.id, newQty)}
+                                        />
+                                    </motion.div>
+                                ))}
                             </div>
+
+                            {/* Clear Cart */}
+                            {items.length > 0 && (
+                                <div className='flex justify-end pt-2'>
+                                    <button
+                                        className='text-gray-500 hover:text-red-600 transition-all text-sm font-semibold flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-red-50 border-2 border-transparent hover:border-red-200'
+                                        onClick={clearCartItems}
+                                    >
+                                        <FaTrashAlt size={13} /> Clear Cart
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
-                        {/* ✅ Cart Items */}
-                        <div className={`space-y-3 sm:space-y-4 mb-6 ${fadeUp}`} style={{ animationDelay: '0.1s' }}>
-                            {cartItems?.map((item, index) => (
-                                <div key={index} className='animate-fade-up' style={{ animationDelay: `${0.05 * index}s` }}>
-                                    <CartItemcard data={item} />
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* ✅ Order Summary */}
-                        <div className={`glass-premium-ultra p-5 sm:p-6 rounded-2xl border border-white/5 ${fadeUp}`} style={{ animationDelay: '0.2s' }}>
-                            <div className='flex items-center gap-3 mb-4'>
-                                <FaTags className='text-[#ff6b35]' size={16} className="sm:text-lg" />
-                                <h2 className='text-white font-semibold text-base sm:text-lg'>Order Summary</h2>
-                            </div>
-                            
-                            <div className='space-y-2 sm:space-y-3 text-xs sm:text-sm'>
-                                <div className='flex justify-between text-white/60'>
-                                    <span>Subtotal ({itemCount} items)</span>
-                                    <span>₹{totalAmount}</span>
-                                </div>
-                                <div className='flex justify-between text-white/60'>
-                                    <span>Delivery Fee</span>
-                                    <span className={deliveryFee === 0 ? 'text-green-400 font-semibold' : 'text-white/60'}>
-                                        {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
-                                    </span>
-                                </div>
-                                <div className='flex justify-between text-white/60'>
-                                    <span>Tax</span>
-                                    <span className='text-white/40'>₹0</span>
+                        {/* RIGHT SIDE - Order Summary */}
+                        <div className='lg:sticky lg:top-6'>
+                            <div className='rounded-3xl bg-white border-2 border-orange-200 shadow-xl shadow-orange-100/50 p-6 sm:p-7'>
+                                {/* Header */}
+                                <div className='flex items-center gap-3 mb-6'>
+                                    <div className='w-11 h-11 rounded-2xl bg-orange-100 border-2 border-orange-200 flex items-center justify-center'>
+                                        <FaTags className='text-orange-700' size={16} />
+                                    </div>
+                                    <div>
+                                        <h2 className='text-gray-900 font-extrabold text-lg'>Order Summary</h2>
+                                        <p className='text-gray-500 text-xs font-medium'>Review your order details</p>
+                                    </div>
                                 </div>
                                 
-                                {/* ✅ Free Delivery Banner */}
-                                {deliveryFee > 0 && (
-                                    <div className='bg-gradient-to-r from-[#ff2d55]/10 to-[#ff6b35]/10 p-3 rounded-xl border border-[#ff6b35]/10'>
-                                        <p className='text-white/60 text-[10px] sm:text-xs text-center'>
-                                            💡 Add <span className='text-[#ff6b35] font-bold'>₹{amountNeededForFreeDelivery}</span> more to get 
-                                            <span className='text-green-400 font-bold'> FREE DELIVERY</span>
-                                        </p>
+                                {/* Details */}
+                                <div className='space-y-3.5 text-sm'>
+                                    <div className='flex justify-between items-center py-2 border-b-2 border-gray-100'>
+                                        <span className='text-gray-700 font-medium'>Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})</span>
+                                        <span className='font-bold text-gray-900'>₹{total}</span>
                                     </div>
+                                    
+                                    <div className='flex justify-between items-center py-2 border-b-2 border-gray-100'>
+                                        <span className='text-gray-700 font-medium'>Delivery Fee</span>
+                                        <span className={deliveryFee === 0 ? 'text-emerald-600 font-bold' : 'font-bold text-gray-900'}>
+                                            {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className='flex justify-between items-center py-2 border-b-2 border-gray-100'>
+                                        <span className='text-gray-700 font-medium'>Tax (GST)</span>
+                                        <span className='font-bold text-gray-900'>₹{TAX_AMOUNT}</span>
+                                    </div>
+                                    
+                                 
+
+                                    {/* Total */}
+                                    <div className='pt-4 mt-2 border-t-2 border-orange-300 flex justify-between items-center'>
+                                        <span className='text-gray-900 font-extrabold text-xl'>Total</span>
+                                        <span className='text-2xl font-extrabold text-orange-600'>
+                                            ₹{grandTotal}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Checkout Button */}
+                                <motion.button 
+                                    whileHover={isOrderValid ? { scale: 1.02 } : {}}
+                                    whileTap={isOrderValid ? { scale: 0.98 } : {}}
+                                    className={`w-full mt-6 py-4 rounded-2xl font-bold text-base transition-all duration-300 flex items-center justify-center gap-3 ${
+                                        isOrderValid 
+                                            ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-200' 
+                                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                    }`}
+                                    onClick={handleCheckout}
+                                    disabled={!isOrderValid}
+                                >
+                                    {isOrderValid ? (
+                                        <>
+                                            Proceed to Checkout
+                                            <FaArrowRight size={14} />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FaExclamationTriangle size={14} />
+                                            Min ₹{MIN_ORDER_AMOUNT} Required
+                                        </>
+                                    )}
+                                </motion.button>
+                                
+                                {!isOrderValid && (
+                                    <p className='text-gray-500 text-sm font-medium text-center mt-3'>
+                                        Add more items to reach minimum order
+                                    </p>
                                 )}
 
-                                <div className='border-t border-white/10 my-2 pt-3 flex justify-between text-base sm:text-lg font-bold'>
-                                    <span className='text-white'>Total</span>
-                                    <span className='text-[#ff6b35] text-lg sm:text-xl'>₹{grandTotal}</span>
+                                {/* Trust Badges */}
+                                <div className='mt-5 pt-4 border-t-2 border-gray-100 flex justify-center gap-6 text-sm'>
+                                    <span className='flex items-center gap-2 text-gray-600 font-medium'>
+                                        <span className='text-green-500 text-lg'>🔒</span> Secure
+                                    </span>
+                                    <span className='flex items-center gap-2 text-gray-600 font-medium'>
+                                        <span className='text-green-500 text-lg'>🚚</span> Fast
+                                    </span>
+                                    <span className='flex items-center gap-2 text-gray-600 font-medium'>
+                                        <span className='text-green-500 text-lg'>💯</span> Fresh
+                                    </span>
                                 </div>
                             </div>
-
-                            <motion.button 
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.95 }}
-                                className='w-full mt-4 sm:mt-5 py-3 sm:py-4 rounded-full bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white font-semibold hover:scale-105 transition-all duration-300 shadow-lg shadow-[#ff2d55]/20 flex items-center justify-center gap-3 group text-sm sm:text-base'
-                                onClick={() => navigate("/checkout")}
-                            >
-                                Proceed to Checkout
-                                <FaArrowRight size={14} className="sm:text-base group-hover:translate-x-2 transition-transform duration-300" />
-                            </motion.button>
                         </div>
-                    </>
+                    </div>
                 )}
             </div>
-
-            <style jsx>{`
-                @keyframes fade-up {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .animate-fade-up {
-                    animation: fade-up 0.4s ease-out forwards;
-                }
-
-                @keyframes pulse {
-                    0%, 100% { transform: scale(1); opacity: 0.3; }
-                    50% { transform: scale(1.1); opacity: 0.6; }
-                }
-                .animate-pulse {
-                    animation: pulse 2s ease-in-out infinite;
-                }
-
-                .animation-delay-300 { animation-delay: 0.3s; }
-                .animation-delay-600 { animation-delay: 0.6s; }
-
-                .glass-premium-ultra {
-                    background: rgba(255, 255, 255, 0.03);
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                    border: 1px solid rgba(255, 255, 255, 0.06);
-                }
-            `}</style>
         </div>
     )
 }

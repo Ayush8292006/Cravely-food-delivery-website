@@ -1,11 +1,12 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo, memo } from 'react'
 import { motion } from 'framer-motion'
+import PropTypes from 'prop-types'
 import { 
     FaUtensils, FaFire, FaLeaf, FaStar, FaArrowRight, 
     FaPizzaSlice, FaHamburger, FaIceCream, FaCoffee,
     FaCrown, FaGem, FaRocket, FaGift, FaMagic,
     FaPepperHot, FaFish, FaAppleAlt, FaCarrot,
-    FaSeedling, FaDrumstickBite
+    FaSeedling, FaDrumstickBite, FaImage
 } from "react-icons/fa";
 import { 
     GiKnifeFork, GiBowlOfRice, GiChopsticks, GiNoodles,
@@ -13,6 +14,7 @@ import {
 } from 'react-icons/gi'
 import { MdRestaurant, MdEmojiFoodBeverage } from 'react-icons/md'
 
+// ✅ Category Icons
 const categoryIcons = {
     'Pizza': <FaPizzaSlice className="text-[#ff6b35] text-2xl" />,
     'Burger': <FaHamburger className="text-[#ff6b35] text-2xl" />,
@@ -26,6 +28,7 @@ const categoryIcons = {
     'Others': <FaUtensils className="text-[#ff6b35] text-2xl" />
 }
 
+// ✅ Category Colors
 const categoryColors = {
     'Pizza': { primary: '#ff6b35', glow: 'rgba(255,107,53,0.3)' },
     'Burger': { primary: '#ff2d55', glow: 'rgba(255,45,85,0.3)' },
@@ -39,23 +42,64 @@ const categoryColors = {
     'Others': { primary: '#94a3b8', glow: 'rgba(148,163,184,0.3)' }
 }
 
-function CategoryCard({ name, image, onClick, index = 0 }) {
+// ✅ Fallback Image
+const FALLBACK_IMAGE = 'https://via.placeholder.com/400/1a1a2e/666?text=🍽️'
+
+function CategoryCard({ 
+    name, 
+    image, 
+    onClick, 
+    index = 0, 
+    rating = null,
+    itemCount = null,
+    isPopular = false,
+    isNew = false,
+    disabled = false,
+    className = ''
+}) {
     const [isHovered, setIsHovered] = useState(false)
     const [isLoaded, setIsLoaded] = useState(false)
     const [isClicked, setIsClicked] = useState(false)
+    const [imageError, setImageError] = useState(false)
 
-    const Icon = categoryIcons[name] || <FaUtensils className="text-[#ff6b35] text-2xl" />
-    const colors = categoryColors[name] || categoryColors['Others']
+    // ✅ Memoized values - stable across renders
+    const Icon = useMemo(() => categoryIcons[name] || categoryIcons['Others'], [name])
+    const colors = useMemo(() => categoryColors[name] || categoryColors['Others'], [name])
     const primaryColor = colors.primary
     const glowColor = colors.glow
 
-    const rating = (Math.random() * 1.5 + 3.5).toFixed(1)
-    const itemCount = Math.floor(Math.random() * 30 + 10)
+    // ✅ Stable random values (only once)
+    const [stableRating] = useState(() => {
+        if (rating !== null) return rating
+        return (Math.random() * 1.5 + 3.5).toFixed(1)
+    })
+    const [stableItemCount] = useState(() => {
+        if (itemCount !== null) return itemCount
+        return Math.floor(Math.random() * 30 + 10)
+    })
+
+    // ✅ Stable badges (only once)
+    const [showPopular] = useState(() => {
+        if (isPopular) return true
+        return Math.random() > 0.6
+    })
+    const [showNew] = useState(() => {
+        if (isNew) return true
+        return Math.random() > 0.8
+    })
 
     const handleClick = () => {
+        if (disabled) return
         setIsClicked(true)
         setTimeout(() => setIsClicked(false), 500)
-        onClick && onClick()
+        if (onClick) onClick()
+    }
+
+    // ✅ Get image source
+    const getImageSrc = () => {
+        if (imageError) return FALLBACK_IMAGE
+        if (image) return image
+        return FALLBACK_IMAGE
     }
 
     return (
@@ -69,24 +113,30 @@ function CategoryCard({ name, image, onClick, index = 0 }) {
                 stiffness: 200,
                 damping: 15
             }}
-            whileHover={{ 
+            whileHover={!disabled ? { 
                 y: -15, 
                 scale: 1.06,
                 transition: { duration: 0.3, type: "spring", stiffness: 400 }
-            }}
-            whileTap={{ scale: 0.92 }}
-            className='relative w-[140px] h-[160px] md:w-[220px] md:h-[240px] 
+            } : {}}
+            whileTap={!disabled ? { scale: 0.92 } : {}}
+            className={`relative w-[140px] h-[160px] md:w-[220px] md:h-[240px] 
                 rounded-3xl overflow-hidden shrink-0 cursor-pointer
                 bg-gradient-to-br from-[#1a1a2e] to-[#12121f]
                 border-2 border-white/5 hover:border-[#ff2d55]/50
                 shadow-2xl hover:shadow-[#ff2d55]/30
-                transition-all duration-500 group'
+                transition-all duration-500 group
+                ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+                ${className}`}
             onClick={handleClick}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseEnter={() => !disabled && setIsHovered(true)}
+            onMouseLeave={() => !disabled && setIsHovered(false)}
             style={{
                 boxShadow: isHovered ? `0 25px 60px ${glowColor}` : '0 10px 30px rgba(0,0,0,0.3)'
             }}
+            role="button"
+            aria-label={`Category: ${name}`}
+            aria-disabled={disabled}
+            tabIndex={disabled ? -1 : 0}
         >
             {/* Premium Background */}
             <div className='absolute inset-0 pointer-events-none'>
@@ -148,23 +198,23 @@ function CategoryCard({ name, image, onClick, index = 0 }) {
                 transition={{ duration: 0.6 }}
             >
                 <img
-                    src={image}
+                    src={getImageSrc()}
                     alt={name}
                     className={`w-full h-full object-cover transition-all duration-700 ${
                         isLoaded ? 'opacity-100' : 'opacity-0'
                     }`}
                     onLoad={() => setIsLoaded(true)}
+                    onError={() => {
+                        setImageError(true)
+                        setIsLoaded(true)
+                    }}
                     loading="lazy"
                 />
                 
                 {!isLoaded && (
                     <div className='absolute inset-0 bg-gradient-to-br from-[#1a1a2e] to-[#12121f]'>
                         <div className='absolute inset-0 flex items-center justify-center'>
-                            <motion.div 
-                                className='w-16 h-16 rounded-full border-4 border-white/10 border-t-[#ff2d55]'
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            />
+                            <FaImage className='text-white/20 text-4xl animate-pulse' />
                         </div>
                     </div>
                 )}
@@ -219,14 +269,15 @@ function CategoryCard({ name, image, onClick, index = 0 }) {
                     flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5
                     rounded-full bg-black/80 backdrop-blur-xl border border-white/10
                     shadow-lg shadow-black/50'
+                aria-label={`Rating: ${stableRating} out of 5`}
             >
                 <FaStar className='text-yellow-400 text-[10px] md:text-sm animate-pulse' />
-                <span className='text-[10px] md:text-xs font-bold text-white'>{rating}</span>
-                <span className='text-[6px] md:text-[8px] text-white/30'>({itemCount})</span>
+                <span className='text-[10px] md:text-xs font-bold text-white'>{stableRating}</span>
+                <span className='text-[6px] md:text-[8px] text-white/30'>({stableItemCount})</span>
             </motion.div>
 
             {/* Popular Badge */}
-            {Math.random() > 0.6 && (
+            {showPopular && (
                 <motion.div 
                     initial={{ scale: 0, x: -50 }}
                     animate={{ scale: 1, x: 0 }}
@@ -245,7 +296,7 @@ function CategoryCard({ name, image, onClick, index = 0 }) {
             )}
 
             {/* New Badge */}
-            {Math.random() > 0.8 && (
+            {showNew && (
                 <motion.div 
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -322,7 +373,7 @@ function CategoryCard({ name, image, onClick, index = 0 }) {
                         <div className='flex items-center gap-2 mt-1'>
                             <span className='w-1.5 h-1.5 rounded-full' style={{ background: primaryColor }} />
                             <p className='text-[8px] md:text-[10px] text-white/50 flex items-center gap-2'>
-                                <span>{itemCount}+ items</span>
+                                <span>{stableItemCount}+ items</span>
                                 <span className='w-px h-3 bg-white/10' />
                                 <span>Premium quality</span>
                             </p>
@@ -372,15 +423,35 @@ function CategoryCard({ name, image, onClick, index = 0 }) {
                 />
             )}
 
-            {/* 3D Hover Effect */}
-            <div 
-                className='absolute inset-0 rounded-3xl pointer-events-none'
-                style={{
-                    background: isHovered ? `radial-gradient(circle at ${Math.random() * 100}% ${Math.random() * 100}%, rgba(255,255,255,0.05), transparent 70%)` : 'none'
-                }}
-            />
+            {/* Disabled Overlay */}
+            {disabled && (
+                <div className='absolute inset-0 bg-black/50 backdrop-blur-sm rounded-3xl flex items-center justify-center'>
+                    <span className='text-white/60 text-sm font-medium'>Coming Soon</span>
+                </div>
+            )}
         </motion.div>
     )
 }
 
-export default CategoryCard
+// ✅ PropTypes for type checking
+CategoryCard.propTypes = {
+    name: PropTypes.string.isRequired,
+    image: PropTypes.string,
+    onClick: PropTypes.func,
+    index: PropTypes.number,
+    rating: PropTypes.number,
+    itemCount: PropTypes.number,
+    isPopular: PropTypes.bool,
+    isNew: PropTypes.bool,
+    disabled: PropTypes.bool,
+    className: PropTypes.string
+}
+
+CategoryCard.defaultProps = {
+    image: FALLBACK_IMAGE,
+    index: 0,
+    disabled: false,
+    className: ''
+}
+
+export default memo(CategoryCard)

@@ -6,9 +6,9 @@ const shopSchema = new mongoose.Schema({
         required: true
     },
     image: {
-        type: String,
-        required: true
-    },
+    type: String,
+    default: null // ⭐ Fix
+},
     owner: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",

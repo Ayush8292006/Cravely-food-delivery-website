@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import axios from 'axios'
 import { FaLocationDot, FaChevronDown } from "react-icons/fa6"
 import { FaSearch, FaTimes, FaCheck, FaHome, FaBriefcase, FaMapMarkerAlt } from "react-icons/fa"
-import { setCurrentCity, setCurrentState, setCurrentAddress, setSavedAddresses, removeSavedAddress, setDefaultAddress } from '../redux/userSlice'
+import { setCurrentCity, setCurrentState, setCurrentAddress, setSavedAddresses } from '../redux/userSlice'
 import { setAddress, setLocation } from '../redux/mapSlice'
 import { toast } from 'react-toastify'
-import { serverUrl } from '../App'
+// ✅ FIXED: Correct import path
+import { serverUrl } from '../../config'
 import { ClipLoader } from 'react-spinners'
 
 function LocationSelector() {
@@ -21,6 +22,7 @@ function LocationSelector() {
     const [submitting, setSubmitting] = useState(false)
     const [gettingLocation, setGettingLocation] = useState(false)
     const dropdownRef = useRef(null)
+    const searchTimeoutRef = useRef(null)
     const apiKey = import.meta.env.VITE_GEOAPIKEY
 
     useEffect(() => {
@@ -40,6 +42,15 @@ function LocationSelector() {
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
+    // ✅ Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current)
+            }
+        }
+    }, [])
+
     const fetchSavedAddresses = async () => {
         try {
             const result = await axios.get(`${serverUrl}/api/user/addresses`, {
@@ -51,38 +62,51 @@ function LocationSelector() {
         }
     }
 
-    const searchAddress = async (query) => {
+    // ✅ Debounced search
+    const searchAddress = useCallback((query) => {
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current)
+        }
+
         if (!query || query.length < 2) {
             setSuggestions([])
             return
         }
 
-        setSearching(true)
-        try {
-            const result = await axios.get(
-                `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(query)}&format=json&apiKey=${apiKey}&limit=5`,
-                { withCredentials: false }
-            )
-            
-            if (result.data.results && result.data.results.length > 0) {
-                const indianResults = result.data.results.filter(r => r.country_code === 'in')
-                setSuggestions(indianResults.length > 0 ? indianResults : result.data.results)
-            } else {
-                setSuggestions([])
-            }
-            setSearching(false)
-        } catch (error) {
-            console.log('Search error:', error)
-            setSearching(false)
+        // ✅ Check API key
+        if (!apiKey) {
+            toast.error('Search service not configured')
+            return
         }
-    }
+
+        setSearching(true)
+        
+        searchTimeoutRef.current = setTimeout(async () => {
+            try {
+                const result = await axios.get(
+                    `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(query)}&format=json&apiKey=${apiKey}&limit=5`,
+                    { withCredentials: false }
+                )
+                
+                if (result.data.results && result.data.results.length > 0) {
+                    const indianResults = result.data.results.filter(r => r.country_code === 'in')
+                    setSuggestions(indianResults.length > 0 ? indianResults : result.data.results)
+                } else {
+                    setSuggestions([])
+                }
+                setSearching(false)
+            } catch (error) {
+                console.log('Search error:', error)
+                setSearching(false)
+            }
+        }, 300) // ✅ 300ms debounce
+    }, [apiKey])
 
     const selectLocation = (suggestion) => {
         const city = suggestion.city || suggestion.state_district || suggestion.state || 'Unknown'
         const state = suggestion.state || ''
         const fullAddress = suggestion.address_line1 + (suggestion.address_line2 ? ', ' + suggestion.address_line2 : '')
 
-        // ✅ Update Redux state
         dispatch(setCurrentCity(city))
         dispatch(setCurrentState(state))
         dispatch(setCurrentAddress(fullAddress))
@@ -94,7 +118,6 @@ function LocationSelector() {
         setShowDropdown(false)
         toast.success(`📍 ${city}`)
 
-        // ✅ Auto-save address to history
         if (userData) {
             autoSaveAddress(suggestion, city)
         }
@@ -139,7 +162,7 @@ function LocationSelector() {
     }
 
     const handleDeleteAddress = async (addressId) => {
-        if (!confirm('Delete this address?')) return
+        if (!window.confirm('Delete this address?')) return
         try {
             await axios.delete(`${serverUrl}/api/user/address/${addressId}`, {
                 withCredentials: true
@@ -169,6 +192,12 @@ function LocationSelector() {
             return
         }
 
+        // ✅ Check API key
+        if (!apiKey) {
+            toast.error('Location service not configured')
+            return
+        }
+
         setGettingLocation(true)
         toast.info('Getting your location...')
 
@@ -189,6 +218,7 @@ function LocationSelector() {
                         toast.error('No location found')
                     }
                 } catch (error) {
+                    console.log('Geolocation API error:', error)
                     toast.error('Failed to get location. Please search manually.')
                 }
                 setGettingLocation(false)
@@ -219,7 +249,6 @@ function LocationSelector() {
 
     return (
         <div className='relative' ref={dropdownRef}>
-            {/* ✅ Location Button - Premium Style */}
             <div 
                 className='flex items-center gap-1.5 px-3 py-2 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:scale-105'
                 onClick={() => setShowDropdown(!showDropdown)}
@@ -231,11 +260,10 @@ function LocationSelector() {
                 <FaChevronDown className={`text-white/40 text-xs transition-transform duration-300 ${showDropdown ? 'rotate-180' : ''}`} />
             </div>
 
-            {/* ✅ Dropdown - Premium Glassmorphism */}
             {showDropdown && (
                 <div className='absolute top-full left-0 mt-2 w-[320px] bg-[#1a1a2e]/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl shadow-black/50 z-[9999] overflow-hidden animate-fade-in'>
                     
-                    {/* ✅ Search Header */}
+                    {/* Search Header */}
                     <div className='p-3 border-b border-white/10'>
                         <div className='relative'>
                             <input
@@ -256,7 +284,6 @@ function LocationSelector() {
                             )}
                         </div>
                         
-                        {/* ✅ Suggestions */}
                         {suggestions.length > 0 && (
                             <div className='mt-2 max-h-40 overflow-y-auto'>
                                 {suggestions.map((s, i) => (
@@ -276,7 +303,7 @@ function LocationSelector() {
                         )}
                     </div>
 
-                    {/* ✅ Current Location */}
+                    {/* Current Location */}
                     <div 
                         className={`p-3 border-b border-white/10 hover:bg-white/5 cursor-pointer flex items-center gap-3 transition-all duration-200 ${gettingLocation ? 'opacity-50' : ''}`}
                         onClick={!gettingLocation ? getCurrentLocation : undefined}
@@ -296,7 +323,7 @@ function LocationSelector() {
                         </div>
                     </div>
 
-                    {/* ✅ Saved Addresses - History */}
+                    {/* Saved Addresses */}
                     {savedAddresses.length > 0 && (
                         <div className='p-2 border-b border-white/10'>
                             <p className='text-xs font-semibold text-white/40 uppercase px-2 py-1 tracking-wider'>Saved Addresses</p>
@@ -349,7 +376,7 @@ function LocationSelector() {
                         </div>
                     )}
 
-                    {/* ✅ Add Address */}
+                    {/* Add Address */}
                     <div className='p-2'>
                         {!showAddressForm ? (
                             <button 

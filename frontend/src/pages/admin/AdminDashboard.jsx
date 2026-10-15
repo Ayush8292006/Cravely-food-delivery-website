@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+// ✅ ADD THIS IMPORT
+import { useSelector } from 'react-redux'  // ← YEH MISSING THA
 import axios from 'axios'
-import { serverUrl } from '../../App'
+// ✅ FIXED: serverUrl import
+import { serverUrl } from '../../../config'
 import { 
-    FaUsers, FaStore, FaShoppingCart, FaDollarSign,
+    FaUsers, FaStore, FaShoppingCart, FaDollarSign,  // ✅ FaDollarSign ADDED
     FaClock, FaCheckCircle, FaTimesCircle, FaCrown, 
     FaUserPlus, FaUserCheck, FaUserTimes, 
     FaChartLine, FaEye, FaChevronRight,
-    FaTruck, FaUtensils, FaRocket, FaGem
+    FaTruck, FaUtensils, FaRocket, FaGem,
+    FaSync, FaExclamationTriangle
 } from "react-icons/fa";
 import { MdDeliveryDining, MdRestaurant } from 'react-icons/md'
 import { ClipLoader } from 'react-spinners'
@@ -17,15 +21,40 @@ import AdminLayout from './AdminLayout'
 
 function AdminDashboard() {
     const navigate = useNavigate()
+    // ✅ Now useSelector is defined
+    const { socket } = useSelector(state => state.user)
     const [stats, setStats] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
     const [recentOrders, setRecentOrders] = useState([])
+    const [refreshing, setRefreshing] = useState(false)
 
     useEffect(() => {
         fetchDashboardData()
     }, [])
 
+    // ✅ Socket listener for new orders
+    useEffect(() => {
+        if (!socket) return
+
+        const handleNewOrder = () => {
+            toast.info('📦 New order received!', {
+                position: "top-center",
+                autoClose: 3000,
+            })
+            fetchDashboardData()
+        }
+
+        socket.on('newOrder', handleNewOrder)
+
+        return () => {
+            socket.off('newOrder', handleNewOrder)
+        }
+    }, [socket])
+
     const fetchDashboardData = async () => {
+        setLoading(true)
+        setError(null)
         try {
             const [statsRes, ordersRes] = await Promise.all([
                 axios.get(`${serverUrl}/api/super-admin/dashboard`, { withCredentials: true }),
@@ -35,10 +64,25 @@ function AdminDashboard() {
             setRecentOrders(ordersRes.data.orders || [])
         } catch (error) {
             console.log('Dashboard error:', error)
-            toast.error('Failed to load dashboard')
+            const errorMsg = error.response?.data?.message || 'Failed to load dashboard'
+            setError(errorMsg)
+            toast.error(errorMsg, {
+                position: "top-center",
+                autoClose: 3000,
+            })
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleRefresh = async () => {
+        setRefreshing(true)
+        await fetchDashboardData()
+        setRefreshing(false)
+        toast.info('🔄 Dashboard refreshed!', {
+            position: "top-center",
+            autoClose: 2000,
+        })
     }
 
     if (loading) {
@@ -61,6 +105,40 @@ function AdminDashboard() {
                         </motion.p>
                     </div>
                 </div>
+            </AdminLayout>
+        )
+    }
+
+    // ✅ Error State
+    if (error) {
+        return (
+            <AdminLayout>
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col items-center justify-center h-[70vh]"
+                >
+                    <div className="w-24 h-24 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                        <FaExclamationTriangle className="text-red-400 text-5xl" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Something went wrong</h2>
+                    <p className="text-white/40 text-sm mb-6">{error}</p>
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={handleRefresh}
+                            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white font-medium flex items-center gap-2"
+                        >
+                            <FaSync className={refreshing ? 'animate-spin' : ''} />
+                            Try Again
+                        </button>
+                        <button 
+                            onClick={() => navigate('/admin')}
+                            className="px-6 py-2.5 rounded-xl border border-white/10 text-white/60 hover:text-white transition"
+                        >
+                            Go Back
+                        </button>
+                    </div>
+                </motion.div>
             </AdminLayout>
         )
     }
@@ -102,25 +180,37 @@ function AdminDashboard() {
 
     return (
         <AdminLayout>
-            {/* ✅ Animated Welcome */}
+            {/* Header with Refresh */}
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 mb-6"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6"
             >
-                <motion.div
-                    animate={{ rotate: [0, 10, -10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                >
-                    <FaCrown className="text-[#ffd700] text-3xl" />
-                </motion.div>
-                <div>
-                    <h1 className="text-2xl font-bold text-white">Welcome Back, Admin!</h1>
-                    <p className="text-white/40 text-sm">Here's what's happening with your platform today</p>
+                <div className="flex items-center gap-3">
+                    <motion.div
+                        animate={{ rotate: [0, 10, -10, 0] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                    >
+                        <FaCrown className="text-[#ffd700] text-3xl" />
+                    </motion.div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-white">Welcome Back, Admin!</h1>
+                        <p className="text-white/40 text-sm">Here's what's happening with your platform today</p>
+                    </div>
                 </div>
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300 text-sm"
+                >
+                    <FaSync className={refreshing ? 'animate-spin' : ''} />
+                    {refreshing ? 'Refreshing...' : 'Refresh'}
+                </motion.button>
             </motion.div>
 
-            {/* ✅ Stats Grid - 3D Cards */}
+            {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
                 {statsCards.map((card, index) => (
                     <motion.div
@@ -169,7 +259,7 @@ function AdminDashboard() {
                 ))}
             </div>
 
-            {/* ✅ Pending Approvals - Animated */}
+            {/* Pending Approvals */}
             <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -237,7 +327,7 @@ function AdminDashboard() {
                 </div>
             </motion.div>
 
-            {/* ✅ Quick Actions - 3D Buttons */}
+            {/* Quick Actions */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 {[
                     { icon: <FaUsers />, label: 'Users', color: 'hover:border-[#ff2d55]/30', gradient: 'from-[#ff2d55]/20 to-[#ff2d55]/5', onClick: () => navigate('/admin/users') },
@@ -266,7 +356,7 @@ function AdminDashboard() {
                 ))}
             </div>
 
-            {/* ✅ Recent Orders - Animated Table */}
+            {/* Recent Orders */}
             <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
