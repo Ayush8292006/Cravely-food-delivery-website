@@ -201,20 +201,52 @@ export const getAllOrders = async (req, res) => {
 export const updateRefundStatus = async (req, res) => {
     try {
         const { orderId } = req.params
-        const { refundStatus } = req.body
+        const { refundStatus, refundAmount } = req.body
 
-        const validStatuses = ['pending', 'processing', 'completed', 'failed']
+        const validStatuses = ['pending', 'processing', 'completed', 'failed', 'rejected']
         if (!validStatuses.includes(refundStatus)) {
             return res.status(400).json({ message: "Invalid refund status" })
         }
 
-        const order = await Order.findById(orderId)
+        const order = await Order.findById(orderId).populate('user', 'fullName email')
         if (!order) {
             return res.status(400).json({ message: "Order not found" })
         }
 
         order.refundStatus = refundStatus
+        if (refundAmount) {
+            order.refundAmount = Number(refundAmount)
+        } else if (!order.refundAmount) {
+            order.refundAmount = order.totalAmount || 0
+        }
+
+        if (refundStatus === 'completed') {
+            order.refundedAt = new Date()
+            if (order.razorpayPaymentId && !order.refundId) {
+                try {
+                    const { refundPayment } = await import('../utils/razorpay.js')
+                    const rf = await refundPayment(order.razorpayPaymentId, order.refundAmount)
+                    if (rf && rf.id) {
+                        order.refundId = rf.id
+                    }
+                } catch (rfErr) {
+                    console.log("Admin Razorpay refund note:", rfErr.message)
+                }
+            }
+        }
+
         await order.save()
+
+        try {
+            const { sendNotification } = await import('./notification.controllers.js')
+            await sendNotification(
+                order.user._id,
+                "Refund Update",
+                `Your refund for order #${order._id.toString().slice(-6)} has been updated to "${refundStatus.toUpperCase()}". Amount: ₹${order.refundAmount}`,
+                "refund",
+                `/my-orders`
+            )
+        } catch (nErr) {}
 
         return res.status(200).json({ 
             message: "Refund status updated",
@@ -226,42 +258,104 @@ export const updateRefundStatus = async (req, res) => {
 }
 
 // ============================================
-// GET REVENUE REPORT
+// GET REVENUE REPORT (Authoritative Financial Breakdown)
 // ============================================
 export const getRevenueReport = async (req, res) => {
     try {
-        const { period = 'month' } = req.query
+        const { period = 'month', startDate: customStart, endDate: customEnd } = req.query
         
         let startDate = new Date()
-        if (period === 'week') {
-            startDate.setDate(startDate.getDate() - 7)
-        } else if (period === 'month') {
-            startDate.setMonth(startDate.getMonth() - 1)
-        } else if (period === 'year') {
-            startDate.setFullYear(startDate.getFullYear() - 1)
+        let endDate = new Date()
+
+        if (customStart && customEnd) {
+            startDate = new Date(customStart)
+            endDate = new Date(customEnd)
+            endDate.setHours(23, 59, 59, 999)
+        } else {
+            if (period === 'week') {
+                startDate.setDate(startDate.getDate() - 7)
+            } else if (period === 'month') {
+                startDate.setMonth(startDate.getMonth() - 1)
+            } else if (period === 'year') {
+                startDate.setFullYear(startDate.getFullYear() - 1)
+            }
+            startDate.setHours(0, 0, 0, 0)
         }
-        startDate.setHours(0, 0, 0, 0)
 
         const orders = await Order.find({
-            createdAt: { $gte: startDate },
-            payment: true
-        })
+            createdAt: { $gte: startDate, $lte: endDate },
+            $or: [{ payment: true }, { paymentStatus: 'paid' }, { paymentMethod: 'cod' }]
+        }).populate('shopOrders.shop', 'name')
 
-        const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0)
-        
+        // Authoritative Aggregation
+        let grossMerchandiseValue = 0 // Total customer payments
+        let totalFoodSubtotal = 0
+        let totalDiscountSubsidized = 0
+        let totalDeliveryFeesCollected = 0
+        let totalTaxesCollected = 0
+        let totalPlatformCommission = 0
+        let totalRestaurantSettlement = 0
+        let totalDeliveryPayouts = 0
+        let totalRefunds = 0
+
         const dailyRevenue = {}
+
         orders.forEach(order => {
             const date = order.createdAt.toISOString().split('T')[0]
-            dailyRevenue[date] = (dailyRevenue[date] || 0) + order.totalAmount
+            const orderTotal = Number(order.totalAmount) || 0
+            const sub = Number(order.subtotal) || (orderTotal - (order.deliveryFee || 0) - (order.taxAmount || 0) + (order.discountAmount || 0))
+            const commission = Number(order.commissionAmount) || Math.round(sub * 0.10)
+            const restEarnings = Number(order.restaurantEarnings) || Math.max(0, sub - commission)
+            const delFee = Number(order.deliveryFee) || 0
+            const tax = Number(order.taxAmount) || 0
+            const disc = Number(order.discountAmount) || 0
+            const refund = Number(order.refundAmount) || 0
+            const isDelivered = order.shopOrders?.some(so => so.status === 'delivered')
+            const delPayout = isDelivered ? (order.deliveryPayout || 50) : 0
+
+            grossMerchandiseValue += orderTotal
+            totalFoodSubtotal += sub
+            totalDiscountSubsidized += disc
+            totalDeliveryFeesCollected += delFee
+            totalTaxesCollected += tax
+            totalPlatformCommission += commission
+            totalRestaurantSettlement += restEarnings
+            totalDeliveryPayouts += delPayout
+            totalRefunds += refund
+
+            if (!dailyRevenue[date]) {
+                dailyRevenue[date] = { gmv: 0, commission: 0, orders: 0 }
+            }
+            dailyRevenue[date].gmv += orderTotal
+            dailyRevenue[date].commission += commission
+            dailyRevenue[date].orders += 1
         })
+
+        const netPlatformRevenue = Math.max(0, totalPlatformCommission + (totalDeliveryFeesCollected - totalDeliveryPayouts) - totalRefunds)
 
         return res.status(200).json({
             period,
-            totalRevenue,
             ordersCount: orders.length,
-            dailyRevenue: Object.entries(dailyRevenue).map(([date, amount]) => ({ date, amount }))
+            grossMerchandiseValue, // Customer total
+            totalFoodSubtotal,
+            totalDiscountSubsidized,
+            totalDeliveryFeesCollected,
+            totalTaxesCollected,
+            totalPlatformCommission, // Cravely platform cut
+            totalRestaurantSettlement, // Net due to restaurants
+            totalDeliveryPayouts, // Net due to riders
+            totalRefunds,
+            netPlatformRevenue,
+            totalRevenue: grossMerchandiseValue,
+            dailyRevenue: Object.entries(dailyRevenue).map(([date, data]) => ({
+                date,
+                amount: data.gmv,
+                commission: data.commission,
+                orders: data.orders
+            }))
         })
     } catch (error) {
+        console.log("Revenue report error:", error.message)
         return res.status(500).json({ message: error.message })
     }
 }

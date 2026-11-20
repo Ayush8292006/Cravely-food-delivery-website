@@ -175,13 +175,26 @@ export const getShopByCity = async (req, res) => {
             })
         }
 
-        const shops = await Shop.find({
-            city: { $regex: new RegExp(`^${city}$`, "i") },
+        let shops = await Shop.find({
+            city: { $regex: new RegExp(`^${city.trim()}$`, "i") },
             isApproved: true  // ✅ Only approved shops for customers
         }).populate("items")
         .populate('owner', 'fullName email')
 
-        // ✅ Return empty array (not 400)
+        if ((!shops || shops.length === 0) && (city.toLowerCase() === 'all' || city.toLowerCase() === 'nearby')) {
+            shops = await Shop.find({ isApproved: true })
+                .populate("items")
+                .populate('owner', 'fullName email')
+        }
+
+        // If no shops in this specific city, still return all approved shops so the customer has choices
+        if (!shops || shops.length === 0) {
+            shops = await Shop.find({ isApproved: true })
+                .populate("items")
+                .populate('owner', 'fullName email')
+                .limit(20)
+        }
+
         return res.status(200).json(shops || [])
 
     } catch (error) {

@@ -4,7 +4,7 @@ import {
     FaHome, FaMotorcycle, FaStar, FaShieldAlt, FaGift,
     FaRocket, FaUtensils, FaStore, FaWhatsapp,
     FaEnvelope, FaPhone, FaHeadset, FaMedal,
-    FaExclamationTriangle, FaHeart
+    FaExclamationTriangle, FaHeart, FaMapMarkerAlt, FaCreditCard
 } from "react-icons/fa";
 import { MdDeliveryDining, MdRestaurant, MdVerified } from "react-icons/md";
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,6 @@ function OrderPlaced() {
     const [loading, setLoading] = useState(true)
     const [orderStatus, setOrderStatus] = useState('processing')
     const [orderData, setOrderData] = useState(null)
-    const [isLoaded, setIsLoaded] = useState(false)
     const [error, setError] = useState(null)
     const [retryCount, setRetryCount] = useState(0)
 
@@ -33,15 +32,6 @@ function OrderPlaced() {
     const paymentId = urlParams.get('payment_id')
     const razorpayOrderId = urlParams.get('razorpay_order_id')
     const razorpaySignature = urlParams.get('razorpay_signature')
-
-    console.log("📦 OrderPlaced Page Loaded")
-    console.log("📦 Session ID:", sessionId)
-    console.log("📦 Order ID:", orderId)
-    console.log("📦 Payment ID:", paymentId)
-
-    useEffect(() => {
-        setTimeout(() => setIsLoaded(true), 300)
-    }, [])
 
     useEffect(() => {
         if (orderData && socket) {
@@ -54,8 +44,6 @@ function OrderPlaced() {
 
     const verifyPayment = async () => {
         if (paymentId && razorpayOrderId && razorpaySignature && orderId) {
-            console.log("🔍 Razorpay verification started...")
-            
             try {
                 const response = await axios.post(
                     `${serverUrl}/api/order/verify-payment`,
@@ -68,350 +56,294 @@ function OrderPlaced() {
                     { withCredentials: true }
                 )
 
-                console.log("✅ Verification Response:", response.data)
-
                 if (response.data.payment === true || response.data.payment === "true") {
                     if (response.data._id) {
                         dispatch(addMyOrder(response.data))
                         setOrderData(response.data)
                         setOrderStatus('success')
-                        toast.success("Payment successful! 🎉")
+                        toast.success("Payment verified! 🎉")
                         setLoading(false)
                         return
                     }
                 }
-            } catch (error) {
-                console.log("❌ Razorpay verification error:", error.response?.data || error.message)
-                setError(error.response?.data?.message || "Payment verification failed")
+            } catch (err) {
+                console.error("Razorpay verification error:", err.response?.data || err.message)
+                setError(err.response?.data?.message || "Payment verification failed")
             }
         }
 
         if (orderId) {
-            console.log("🔍 Fetching order by ID...")
             try {
                 const response = await axios.get(
                     `${serverUrl}/api/order/get-order-by-id/${orderId}`,
                     { withCredentials: true }
                 )
-                
-                console.log("📦 Order fetched:", response.data)
-                
                 if (response.data && response.data._id) {
                     dispatch(addMyOrder(response.data))
                     setOrderData(response.data)
                     setOrderStatus('success')
-                    toast.success("Order placed successfully! 🎉")
+                    toast.success("Order confirmed! 🎉")
                     setLoading(false)
                     return
                 }
-            } catch (error) {
-                console.log("❌ Error fetching order:", error.message)
+            } catch (err) {
+                console.error("Error fetching order:", err.message)
             }
         }
 
-        console.log("📦 Fetching latest order...")
-        
+        // Fallback: poll recent orders
         try {
             for (let i = 0; i < 5; i++) {
-                console.log(`🔄 Attempt ${i + 1} of 5...`)
-                
                 const response = await axios.get(
                     `${serverUrl}/api/order/my-orders`,
                     { withCredentials: true }
                 )
-                
                 const orders = response.data || []
-                
                 if (orders.length > 0) {
                     const latestOrder = orders[0]
-                    console.log("📦 Latest order:", latestOrder._id, "Payment:", latestOrder.payment)
-                    
                     if (latestOrder.payment === true || latestOrder.paymentMethod === 'cod') {
                         if (latestOrder._id) {
                             dispatch(addMyOrder(latestOrder))
                             setOrderData(latestOrder)
                             setOrderStatus('success')
-                            toast.success("Order placed successfully! 🎉")
+                            toast.success("Order confirmed! 🎉")
                             setLoading(false)
                             return
                         }
                     }
                 }
-                
                 if (i < 4) {
                     await new Promise(resolve => setTimeout(resolve, 1500))
                 }
                 setRetryCount(i + 1)
             }
-        } catch (error) {
-            console.log("❌ Error fetching orders:", error.message)
+        } catch (err) {
+            console.error("Error fetching orders:", err.message)
         }
 
         setOrderStatus('success')
-        toast.warning("Order placed! Please check your orders page for details.")
+        toast.info("Order recorded! Check your orders page for live status.")
         setLoading(false)
     }
 
     useEffect(() => {
-        const timer = setTimeout(verifyPayment, 1500)
+        const timer = setTimeout(verifyPayment, 1200)
         return () => clearTimeout(timer)
     }, [sessionId, orderId, paymentId])
 
-    const fadeUp = `transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`
-
     if (loading) {
         return (
-            <div className='min-h-screen bg-white flex flex-col justify-center items-center'>
-                <div className='relative'>
-                    <div className='w-16 h-16 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin' />
-                    <div className='absolute inset-0 animate-ping rounded-full border-2 border-orange-300/20' />
+            <div className="min-h-screen bg-[#0A090D] text-white flex flex-col justify-center items-center px-4">
+                <div className="relative">
+                    <ClipLoader size={54} color="#FF6B00" />
                 </div>
-                <p className='mt-6 text-gray-500 text-sm font-medium flex items-center gap-2'>
-                    <span className='w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse' />
-                    Verifying your payment...
-                    <span className='w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse animation-delay-300' />
+                <h3 className="mt-6 text-lg font-black text-white flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#FF6B00] animate-pulse" />
+                    Confirming Your Feast Order...
+                </h3>
+                <p className="mt-1 text-xs text-gray-400">
+                    Securing payment verification & notifying kitchen
                 </p>
                 {retryCount > 0 && (
-                    <p className='mt-2 text-gray-400 text-xs font-medium'>
-                        Attempt {retryCount} of 5...
+                    <p className="mt-2 text-[11px] text-gray-500 font-mono">
+                        Verification attempt {retryCount} of 5...
                     </p>
                 )}
-                <div className='mt-4 flex items-center gap-2'>
-                    <div className='w-2 h-2 rounded-full bg-orange-400 animate-pulse' />
-                    <div className='w-2 h-2 rounded-full bg-orange-400 animate-pulse animation-delay-300' />
-                    <div className='w-2 h-2 rounded-full bg-amber-400 animate-pulse animation-delay-600' />
-                </div>
             </div>
         )
     }
 
     if (error) {
         return (
-            <div className='min-h-screen bg-white flex flex-col justify-center items-center px-4'>
-                <div className='bg-white border-2 border-red-200 p-8 md:p-12 rounded-3xl text-center max-w-md w-full shadow-lg'>
-                    <div className='w-20 h-20 mx-auto rounded-full bg-red-50 border-2 border-red-200 flex items-center justify-center'>
-                        <FaExclamationTriangle className='text-red-500 text-4xl' />
+            <div className="min-h-screen bg-[#0A090D] text-white flex flex-col justify-center items-center px-4">
+                <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-[#13121A] border border-red-500/30 p-8 sm:p-10 rounded-3xl text-center max-w-md w-full shadow-2xl space-y-4"
+                >
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+                        <FaExclamationTriangle size={30} />
                     </div>
-                    <h2 className='text-2xl font-bold text-gray-800 mt-4'>Something went wrong</h2>
-                    <p className='text-gray-500 text-sm mt-2'>{error}</p>
-                    <div className='flex flex-col sm:flex-row gap-3 justify-center mt-6'>
+                    <h2 className="text-xl font-black text-white">Verification Notice</h2>
+                    <p className="text-xs text-gray-400">{error}</p>
+                    <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
                         <button 
-                            className='px-6 py-2.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-medium transition shadow-sm shadow-orange-200'
+                            className="px-5 py-2.5 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white font-bold text-xs transition shadow-md cursor-pointer"
                             onClick={() => {
                                 setError(null)
                                 setLoading(true)
                                 verifyPayment()
                             }}
                         >
-                            Retry
+                            Retry Verification
                         </button>
                         <button 
-                            className='px-6 py-2.5 rounded-full border-2 border-gray-200 text-gray-600 hover:bg-gray-50 transition font-medium'
+                            className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition cursor-pointer"
                             onClick={() => navigate('/my-orders')}
                         >
-                            View My Orders
+                            View Orders
                         </button>
                     </div>
-                </div>
+                </motion.div>
             </div>
         )
     }
 
     const orderIdDisplay = orderData?._id 
         ? orderData._id.slice(-8).toUpperCase() 
-        : 'N/A'
+        : 'CONFIRMED'
 
     const totalAmount = orderData?.totalAmount || 0
     const paymentMethod = orderData?.paymentMethod || 'cod'
     const isPaid = orderData?.payment === true || orderData?.payment === "true"
+    const firstShop = orderData?.shopOrders?.[0]
+    const restaurant = firstShop?.shop
+    const items = firstShop?.shopOrderItems || []
 
     return (
         <div 
-            className='min-h-screen bg-[#f8f4f0] relative'
-            style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}
+            className="min-h-screen bg-[#0A090D] text-white py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center selection:bg-[#FF6B00] selection:text-white"
+            style={{ fontFamily: "'Poppins', 'Segoe UI', system-ui, sans-serif" }}
         >
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-                
-                .glass-premium-ultra {
-                    background: rgba(255, 255, 255, 0.9);
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                    border: 1px solid rgba(0, 0, 0, 0.06);
-                }
-
-                @keyframes pulse-glow {
-                    0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.15); }
-                    50% { box-shadow: 0 0 40px rgba(34, 197, 94, 0.3); }
-                }
-                .animate-pulse-glow {
-                    animation: pulse-glow 2s ease-in-out infinite;
-                }
-
-                @keyframes pulse {
-                    0%, 100% { opacity: 0.6; }
-                    50% { opacity: 1; }
-                }
-                .animate-pulse {
-                    animation: pulse 2s ease-in-out infinite;
-                }
-                .animation-delay-300 { animation-delay: 0.3s; }
-                .animation-delay-600 { animation-delay: 0.6s; }
-            `}</style>
-
-            <div className='relative z-10 max-w-4xl mx-auto px-4 py-8 sm:py-12 min-h-screen flex items-center justify-center'>
-                
-                <motion.div 
-                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.6, type: "spring" }}
-                    className={`w-full ${fadeUp}`}
-                >
+            <motion.div 
+                initial={{ opacity: 0, y: 25 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="w-full max-w-2xl space-y-6"
+            >
+                {/* 1. Celebratory Success Hero Card */}
+                <div className="bg-[#13121A] border border-white/10 rounded-3xl p-6 sm:p-8 text-center shadow-2xl relative overflow-hidden">
                     
-                    {/* Success Card */}
-                    <div className='bg-white border-2 border-gray-200 p-6 sm:p-8 md:p-12 rounded-3xl text-center max-w-2xl mx-auto shadow-lg hover:shadow-xl transition-shadow duration-300 relative overflow-hidden'>
-                        
-                        {/* Decorative Elements */}
-                        <div className='absolute -top-40 -right-40 w-80 h-80 bg-orange-100/30 rounded-full blur-3xl' />
-                        <div className='absolute -bottom-40 -left-40 w-80 h-80 bg-amber-100/30 rounded-full blur-3xl' />
-                        
-                        {/* Top accent bar */}
-                        <div className='absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-orange-400 via-amber-400 to-orange-400' />
-                        
-                        {/* Success Icon */}
-                        <div className='relative z-10'>
-                            <motion.div 
-                                initial={{ scale: 0, rotate: -45 }}
-                                animate={{ scale: 1, rotate: 0 }}
-                                transition={{ delay: 0.2, type: "spring" }}
-                                className='w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-full bg-green-50 border-2 border-green-200 flex items-center justify-center animate-pulse-glow'
-                            >
-                                <FaCheckCircle className='text-green-500 text-3xl sm:text-5xl' />
-                            </motion.div>
-                        </div>
+                    {/* Animated Checkmark Icon (Solid Emerald, Zero Gradients) */}
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                        className="w-20 h-20 mx-auto rounded-3xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-5 shadow-lg"
+                    >
+                        <FaCheckCircle size={40} />
+                    </motion.div>
 
-                        {/* Title */}
-                        <div className='relative z-10 mt-4 sm:mt-6'>
-                            <motion.h1 
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.3 }}
-                                className='text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900'
-                            >
-                                {paymentMethod === 'cod' ? 'Order Placed! 🎉' : 'Payment Successful! 🎉'}
-                            </motion.h1>
-                            <motion.p 
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.4 }}
-                                className='text-gray-500 text-xs sm:text-sm mt-2 font-medium'
-                            >
-                                {paymentMethod === 'cod' 
-                                    ? 'Your order has been confirmed and will be delivered soon.'
-                                    : 'Thank you for your purchase. Your order is being prepared.'
-                                }
-                            </motion.p>
-                        </div>
+                    <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                        Order Placed Successfully!
+                    </h1>
+                    <p className="text-xs sm:text-sm text-gray-400 mt-2 max-w-md mx-auto">
+                        Your culinary cravings are officially confirmed and the kitchen is getting ready to cook.
+                    </p>
 
-                        {/* Order ID */}
-                        <div className='relative z-10 mt-3 sm:mt-4'>
-                            <span className='inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gray-100 border border-gray-200 text-gray-600 text-[10px] sm:text-xs font-medium'>
-                                <FaReceipt size={12} />
-                                Order #{orderIdDisplay}
-                            </span>
-                        </div>
+                    {/* Order Meta Pills */}
+                    <div className="flex flex-wrap items-center justify-center gap-2.5 mt-5">
+                        <span className="px-3.5 py-1 rounded-full bg-white/[0.06] border border-white/10 text-xs font-mono font-bold text-gray-300">
+                            ID: #{orderIdDisplay}
+                        </span>
+                        <span className={`px-3.5 py-1 rounded-full text-xs font-bold border ${
+                            isPaid 
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                        }`}>
+                            {isPaid ? 'PAID ONLINE' : 'CASH ON DELIVERY'}
+                        </span>
+                        <span className="px-3.5 py-1 rounded-full bg-[#FF6B00]/15 border border-orange-500/30 text-xs font-bold text-[#FF8C00]">
+                            ⚡ Est: 30-40 Mins
+                        </span>
+                    </div>
+                </div>
 
-                        {/* Delivery Info */}
-                        <div className='relative z-10 mt-4 sm:mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4'>
-                            <div className='bg-gray-50 border border-gray-200 p-3 sm:p-4 rounded-2xl hover:border-orange-200 transition-colors'>
-                                <div className='flex flex-col items-center gap-1 sm:gap-2'>
-                                    <MdRestaurant className='text-orange-500 text-lg sm:text-xl' />
-                                    <p className='text-gray-400 text-[8px] sm:text-[10px] font-semibold tracking-wider'>STATUS</p>
-                                    <p className='text-green-600 text-xs sm:text-sm font-bold'>Confirmed</p>
-                                </div>
+                {/* 2. Order Summary Card */}
+                <div className="bg-[#13121A] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-5 shadow-xl">
+                    <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-[#0A090D] border border-white/10 flex items-center justify-center text-[#FF6B00]">
+                                <FaStore size={16} />
                             </div>
-                            
-                            <div className='bg-gray-50 border border-gray-200 p-3 sm:p-4 rounded-2xl hover:border-orange-200 transition-colors'>
-                                <div className='flex flex-col items-center gap-1 sm:gap-2'>
-                                    <MdDeliveryDining className='text-blue-500 text-lg sm:text-xl' />
-                                    <p className='text-gray-400 text-[8px] sm:text-[10px] font-semibold tracking-wider'>DELIVERY</p>
-                                    <p className='text-gray-700 text-xs sm:text-sm font-bold'>30-40 min</p>
-                                </div>
-                            </div>
-                            
-                            <div className='bg-gray-50 border border-gray-200 p-3 sm:p-4 rounded-2xl hover:border-orange-200 transition-colors'>
-                                <div className='flex flex-col items-center gap-1 sm:gap-2'>
-                                    <FaClock className='text-amber-500 text-lg sm:text-xl' />
-                                    <p className='text-gray-400 text-[8px] sm:text-[10px] font-semibold tracking-wider'>PAYMENT</p>
-                                    <p className={isPaid ? 'text-green-600 text-xs sm:text-sm font-bold' : 'text-amber-600 text-xs sm:text-sm font-bold'}>
-                                        {isPaid ? '✅ Paid' : '⏳ Pending'}
-                                    </p>
-                                </div>
+                            <div>
+                                <h3 className="text-sm sm:text-base font-black text-white truncate">
+                                    {restaurant?.name || 'Cravely Kitchen'}
+                                </h3>
+                                <p className="text-xs text-gray-400 truncate flex items-center gap-1">
+                                    <FaMapMarkerAlt size={10} className="text-[#FF6B00]" />
+                                    <span>{restaurant?.address || 'Restaurant Address'}</span>
+                                </p>
                             </div>
                         </div>
 
-                        {/* Total Amount */}
-                        {totalAmount > 0 && (
-                            <div className='relative z-10 mt-3 sm:mt-4'>
-                                <div className='inline-block bg-orange-50 border-2 border-orange-200 px-4 sm:px-6 py-2 sm:py-3 rounded-2xl'>
-                                    <p className='text-gray-600 text-sm'>
-                                        Total: <span className='text-orange-600 font-bold text-lg sm:text-2xl'>₹{totalAmount}</span>
-                                    </p>
-                                    <p className='text-gray-400 text-[10px] sm:text-xs font-medium'>
-                                        {paymentMethod === 'cod' ? 'Cash on Delivery' : 'Paid Online'}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className='relative z-10 mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3'>
-                            <motion.button 
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.95 }}
-                                className='w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-semibold transition shadow-sm shadow-orange-200 flex items-center justify-center gap-2 group'
-                                onClick={() => navigate("/my-orders")}
-                            >
-                                <FaTruck size={14} className='group-hover:translate-x-1 transition-transform' />
-                                <span>View My Orders</span>
-                            </motion.button>
-                            
-                            <motion.button 
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.95 }}
-                                className='w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 rounded-full border-2 border-gray-200 text-gray-600 text-xs sm:text-sm font-semibold hover:bg-gray-50 transition flex items-center justify-center gap-2'
-                                onClick={() => navigate("/")}
-                            >
-                                <FaHome size={14} />
-                                <span>Back to Home</span>
-                            </motion.button>
+                        <div className="text-right">
+                            <p className="text-xs text-gray-400">Total Paid</p>
+                            <p className="text-base sm:text-lg font-black text-white font-mono">₹{totalAmount}</p>
                         </div>
+                    </div>
 
-                        {/* Thank You Message */}
-                        <div className='relative z-10 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200'>
-                            <p className='text-gray-400 text-[10px] sm:text-xs font-medium'>
-                                {userData?.email && (
-                                    <span>📧 A confirmation email has been sent to <span className='text-gray-600'>{userData.email}</span></span>
-                                )}
+                    {/* Items List Preview */}
+                    {items.length > 0 && (
+                        <div className="bg-[#0A090D] rounded-2xl p-4 border border-white/[0.06] space-y-2">
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                Ordered Delicacies ({items.length})
                             </p>
+                            <div className="divide-y divide-white/[0.04] max-h-36 overflow-y-auto pr-1">
+                                {items.map((it, idx) => (
+                                    <div key={idx} className="py-2 flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-4 h-4 rounded-full bg-white/10 text-[10px] font-black flex items-center justify-center text-white">
+                                                {it.quantity}x
+                                            </span>
+                                            <span className="text-gray-200 font-medium truncate max-w-xs">{it.name}</span>
+                                        </div>
+                                        <span className="text-white font-mono font-semibold">₹{it.price * (it.quantity || 1)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Progress Step Strip */}
+                    <div className="pt-2 grid grid-cols-3 gap-3 text-center">
+                        <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.06]">
+                            <FaReceipt size={14} className="text-[#FF6B00] mx-auto mb-1" />
+                            <p className="text-xs font-bold text-white">Confirmed</p>
+                            <p className="text-[10px] text-gray-400">Kitchen notified</p>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.06]">
+                            <FaUtensils size={14} className="text-sky-400 mx-auto mb-1" />
+                            <p className="text-xs font-bold text-white">Preparing</p>
+                            <p className="text-[10px] text-gray-400">Fresh cooking</p>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.06]">
+                            <FaMotorcycle size={14} className="text-emerald-400 mx-auto mb-1" />
+                            <p className="text-xs font-bold text-white">Delivery</p>
+                            <p className="text-[10px] text-gray-400">Rider assigned</p>
                         </div>
                     </div>
+                </div>
 
-                    {/* Footer */}
-                    <div className='text-center mt-6 sm:mt-8'>
-                        <p className='text-gray-400 text-[10px] sm:text-xs flex items-center justify-center gap-2 flex-wrap font-medium'>
-                            <span>Need help?</span>
-                            <span className='text-orange-500 hover:underline cursor-pointer flex items-center gap-1 font-semibold'>
-                                <FaHeadset size={12} /> Contact Support
-                            </span>
-                            <span className='text-gray-300'>|</span>
-                            <span className='text-gray-400 flex items-center gap-1'>
-                                <FaShieldAlt size={10} className='text-green-500' /> Secure
-                            </span>
-                        </p>
-                    </div>
-                </motion.div>
-            </div>
+                {/* 3. Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <button
+                        onClick={() => navigate(orderData?._id ? `/track-order/${orderData._id}` : '/my-orders')}
+                        className="flex-1 py-3.5 rounded-2xl bg-[#FF6B00] hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        <FaTruck size={13} />
+                        <span>Track Order Live</span>
+                        <FaArrowRight size={10} />
+                    </button>
+
+                    <button
+                        onClick={() => navigate('/my-orders')}
+                        className="flex-1 py-3.5 rounded-2xl bg-[#13121A] hover:bg-white/10 border border-white/10 text-white font-black text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        <FaReceipt size={13} className="text-gray-400" />
+                        <span>View My Orders</span>
+                    </button>
+                </div>
+
+                <div className="text-center pt-2">
+                    <button
+                        onClick={() => navigate('/restaurants')}
+                        className="text-xs text-gray-400 hover:text-white transition font-medium cursor-pointer"
+                    >
+                        ← Continue exploring restaurants
+                    </button>
+                </div>
+            </motion.div>
         </div>
     )
 }

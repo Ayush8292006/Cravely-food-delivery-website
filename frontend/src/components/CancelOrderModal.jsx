@@ -201,44 +201,36 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                     </div>
 
                     <motion.div 
-                        initial={{ opacity: 0, scale: 0.8, y: 30 }}
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.8, y: 30 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                        className={`relative w-full max-w-md ${fadeUp}`}
+                        className="relative w-full max-w-md bg-[#13121A] rounded-3xl border border-white/10 overflow-hidden shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Glowing Border Card */}
-                        <div className='absolute inset-0 rounded-3xl bg-gradient-to-r from-red-500 via-orange-500 to-red-500 opacity-20 blur-xl animate-pulse' />
-                        
-                        <div className='relative bg-[#12121a] rounded-3xl border border-white/10 overflow-hidden shadow-2xl shadow-red-500/10'>
-                            
-                            {/* Premium Header */}
-                            <div className='bg-gradient-to-r from-red-500/20 to-orange-500/20 p-5 sm:p-6 border-b border-white/5'>
-                                <button 
-                                    className='absolute top-3 right-3 sm:top-4 sm:right-4 text-white/30 hover:text-white/70 transition-all duration-300 hover:rotate-90 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-white/10 backdrop-blur-sm'
-                                    onClick={handleClose}
-                                >
-                                    <FaTimes size={16} className="sm:text-lg" />
-                                </button>
+                        {/* Header */}
+                        <div className="bg-[#181722] p-5 sm:p-6 border-b border-white/[0.08]">
+                            <button 
+                                className="absolute top-4 right-4 text-white/40 hover:text-white transition w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10"
+                                onClick={handleClose}
+                            >
+                                <FaTimes size={15} />
+                            </button>
 
-                                <div className='flex items-center gap-3 sm:gap-4'>
-                                    <div className='relative'>
-                                        <div className='w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg shadow-red-500/30'>
-                                            <FaTrashAlt className='text-white text-xl sm:text-2xl' />
-                                        </div>
-                                        <div className='absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded-full animate-ping' />
-                                    </div>
-                                    <div>
-                                        <h2 className='text-xl sm:text-2xl font-bold text-white tracking-tight'>
-                                            Cancel Order
-                                        </h2>
-                                        <p className='text-white/40 text-xs sm:text-sm'>
-                                            Order #{orderData.id ? orderData.id.slice(-8).toUpperCase() : 'N/A'}
-                                        </p>
-                                    </div>
+                            <div className="flex items-center gap-3.5">
+                                <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-500 shadow-md">
+                                    <FaTrashAlt size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black text-white tracking-tight">
+                                        Cancel Order
+                                    </h2>
+                                    <p className="text-gray-400 text-xs">
+                                        Order #{orderData.id ? orderData.id.slice(-8).toUpperCase() : 'N/A'}
+                                    </p>
                                 </div>
                             </div>
+                        </div>
 
                             {/* Content */}
                             <div className='p-4 sm:p-6'>
@@ -276,11 +268,11 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
 
                                         {/* Step Indicator */}
                                         <div className='flex items-center gap-2 mb-4 sm:mb-6'>
-                                            <div className={`flex-1 h-1 rounded-full transition-all duration-500 ${
-                                                step >= 1 ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-white/10'
+                                            <div className={`flex-1 h-1 rounded-full transition-all duration-300 ${
+                                                step >= 1 ? 'bg-[#FF6B00]' : 'bg-white/10'
                                             }`} />
-                                            <div className={`flex-1 h-1 rounded-full transition-all duration-500 ${
-                                                step >= 2 ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-white/10'
+                                            <div className={`flex-1 h-1 rounded-full transition-all duration-300 ${
+                                                step >= 2 ? 'bg-[#FF6B00]' : 'bg-white/10'
                                             }`} />
                                         </div>
 
@@ -294,7 +286,7 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                             >
                                                 <div className='text-center'>
                                                     <motion.div 
-                                                        animate={{ scale: [1, 1.1, 1] }}
+                                                        animate={{ scale: [1, 1.05, 1] }}
                                                         transition={{ duration: 2, repeat: Infinity }}
                                                         className='w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 rounded-full bg-red-500/10 flex items-center justify-center border-2 border-red-500/30'
                                                     >
@@ -309,7 +301,7 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                 </div>
 
                                                 {/* Warning Box */}
-                                                <div className='bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4'>
+                                                <div className='bg-amber-500/10 border border-amber-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4'>
                                                     <div className='flex items-start gap-2 sm:gap-3'>
                                                         <div className='w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0'>
                                                             <MdWarning className='text-yellow-400 text-xs sm:text-sm' />
@@ -320,7 +312,7 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                             </p>
                                                             <p className='text-yellow-400/60 text-[10px] sm:text-xs mt-0.5 sm:mt-1'>
                                                                 {orderData.paymentMethod === 'online' 
-                                                                    ? '💳 Refund will be processed within 5-7 business days'
+                                                                    ? '💳 Refund will be processed back to your original payment method automatically'
                                                                     : '💰 No refund applicable for COD orders'
                                                                 }
                                                             </p>
@@ -333,7 +325,7 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                         whileHover={{ scale: 1.02 }}
                                                         whileTap={{ scale: 0.98 }}
                                                         onClick={() => setStep(2)}
-                                                        className='w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold hover:scale-[1.02] transition-all duration-300 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 text-sm sm:text-base'
+                                                        className='w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-semibold transition-all duration-300 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 text-sm sm:text-base cursor-pointer'
                                                     >
                                                         Continue
                                                         <FaArrowRight size={12} className="sm:text-sm" />
@@ -343,7 +335,7 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                         whileHover={{ scale: 1.02 }}
                                                         whileTap={{ scale: 0.98 }}
                                                         onClick={handleClose}
-                                                        className='w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl border border-white/10 text-white/40 font-medium hover:bg-white/5 hover:text-white/60 transition-all duration-300 text-sm sm:text-base'
+                                                        className='w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl border border-white/10 text-white/60 font-medium hover:bg-white/5 hover:text-white transition-all duration-300 text-sm sm:text-base cursor-pointer'
                                                     >
                                                         Keep My Order
                                                     </motion.button>
@@ -431,7 +423,7 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                                     <motion.button
                                                         whileHover={{ scale: 1.02 }}
                                                         whileTap={{ scale: 0.98 }}
-                                                        className='flex-1 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold hover:scale-[1.02] transition-all duration-300 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 disabled:opacity-50 text-xs sm:text-sm'
+                                                        className='flex-1 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-semibold transition-all duration-300 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 disabled:opacity-50 text-xs sm:text-sm cursor-pointer'
                                                         onClick={handleSubmit}
                                                         disabled={submitting || !selectedReason}
                                                     >
@@ -466,7 +458,6 @@ function CancelOrderModal({ isOpen, onClose, orderId, onCancelled }) {
                                     This action is permanent and cannot be reversed
                                 </p>
                             </div>
-                        </div>
                     </motion.div>
                 </motion.div>
             )}

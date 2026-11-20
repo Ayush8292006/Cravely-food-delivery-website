@@ -2,37 +2,31 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import axios from 'axios'
-// ✅ FIXED: Correct import
 import { serverUrl } from '../../config'
 import { 
     FaArrowLeft, FaShoppingBag, FaClock, FaCheckCircle,
-    FaTimesCircle, FaHourglassHalf, FaSearch,
-    FaTruck, FaUtensils, FaFire, FaArrowRight,
-    FaSync, FaStore, FaUser, FaTag, FaRocket,
-    FaCrown, FaStar, FaMedal, FaAward,
-    FaFilter, FaChartLine, FaBox, FaClipboardList,
+    FaTimesCircle, FaSearch, FaSync, FaStore, FaUtensils,
     FaExclamationTriangle
-} from "react-icons/fa";
-import { MdRestaurant, MdVerified } from "react-icons/md";
+} from "react-icons/fa"
+import { MdRestaurant } from "react-icons/md"
 import { ClipLoader } from 'react-spinners'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-toastify'
 import OwnerNav from '../components/OwnerNav'
 import OwnerOrderCard from '../components/OwnerOrderCard'
 
 function OwnerMyOrders() {
     const navigate = useNavigate()
-    const { userData } = useSelector(state => state.user)
+    const { userData, socket } = useSelector(state => state.user)
     const { myShopData } = useSelector(state => state.owner)
-    const { socket } = useSelector(state => state.user)
     const [orders, setOrders] = useState([])
     const [filteredOrders, setFilteredOrders] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [activeFilter, setActiveFilter] = useState('all')
     const [searchQuery, setSearchQuery] = useState('')
-    const [isLoaded, setIsLoaded] = useState(false)
     const [refreshing, setRefreshing] = useState(false)
+
     const [stats, setStats] = useState({
         total: 0,
         pending: 0,
@@ -42,54 +36,22 @@ function OwnerMyOrders() {
         cancelled: 0
     })
 
-    useEffect(() => {
-        setTimeout(() => setIsLoaded(true), 300)
-    }, [])
-
-    useEffect(() => {
-        fetchOrders()
-    }, [])
-
-    // ✅ Socket listener for new orders
-    useEffect(() => {
-        if (!socket) return
-
-        const handleNewOrder = (newOrder) => {
-            toast.info(`📦 New order received!`, {
-                position: "top-center",
-                autoClose: 3000,
-            })
-            fetchOrders()
-        }
-
-        socket.on('newOrder', handleNewOrder)
-
-        return () => {
-            socket.off('newOrder', handleNewOrder)
-        }
-    }, [socket])
-
-    // ✅ Helper: Get order status
     const getOrderStatus = (order) => {
-        return order.shopOrders?.[0]?.status || 'pending'
+        const so = Array.isArray(order.shopOrders) ? order.shopOrders[0] : order.shopOrders
+        return so?.status || 'pending'
     }
 
     const fetchOrders = async () => {
         setLoading(true)
         setError(null)
         try {
-            console.log("🔍 Fetching owner orders...")
-            const response = await axios.get(`${serverUrl}/api/order/my-orders`, {
+            const response = await axios.get(`${serverUrl}/api/order/my-orders?type=owner`, {
                 withCredentials: true
             })
-            
-            console.log("📦 Orders Response:", response.data)
-            
             const ordersData = response.data || []
             setOrders(ordersData)
             setFilteredOrders(ordersData)
 
-            // ✅ Fix: Calculate stats correctly
             const total = ordersData.length
             const pending = ordersData.filter(o => getOrderStatus(o) === 'pending').length
             const preparing = ordersData.filter(o => getOrderStatus(o) === 'preparing').length
@@ -98,25 +60,42 @@ function OwnerMyOrders() {
             const cancelled = ordersData.filter(o => getOrderStatus(o) === 'cancelled').length
 
             setStats({ total, pending, preparing, outForDelivery, delivered, cancelled })
-            
-            if (ordersData.length === 0) {
-                console.log("⚠️ No orders found")
-            }
-        } catch (error) {
-            console.log("❌ Fetch orders error:", error)
-            const errorMsg = error.response?.data?.message || 'Failed to fetch orders'
-            setError(errorMsg)
-            toast.error(errorMsg)
+        } catch (err) {
+            console.error("Fetch orders error:", err)
+            setError(err.response?.data?.message || 'Failed to fetch orders')
+            toast.error(err.response?.data?.message || 'Failed to fetch orders')
         } finally {
             setLoading(false)
         }
     }
 
+    useEffect(() => {
+        fetchOrders()
+    }, [])
+
+    // Real-time socket listener for incoming kitchen orders
+    useEffect(() => {
+        if (!socket) return
+
+        const handleNewOrder = () => {
+            toast.info(`🔔 New order received in kitchen!`)
+            fetchOrders()
+        }
+
+        socket.on('newOrder', handleNewOrder)
+        socket.on('new-order-placed', handleNewOrder)
+
+        return () => {
+            socket.off('newOrder', handleNewOrder)
+            socket.off('new-order-placed', handleNewOrder)
+        }
+    }, [socket])
+
     const handleRefresh = async () => {
         setRefreshing(true)
         await fetchOrders()
         setRefreshing(false)
-        toast.info('🔄 Orders refreshed!')
+        toast.info('Orders refreshed')
     }
 
     useEffect(() => {
@@ -129,281 +108,175 @@ function OwnerMyOrders() {
             filtered = filtered.filter(o => 
                 o._id?.toLowerCase().includes(query) ||
                 o.user?.fullName?.toLowerCase().includes(query) ||
-                o.user?.email?.toLowerCase().includes(query)
+                o.invoiceNumber?.toLowerCase().includes(query)
             )
         }
         setFilteredOrders(filtered)
     }, [activeFilter, searchQuery, orders])
 
-    const handleStatusUpdate = () => {
-        fetchOrders()
-    }
-
-    const fadeUp = `transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`
-
-    // ✅ Check if owner has a shop
     if (!myShopData && !loading) {
         return (
-            <div className='min-h-screen bg-white'>
+            <div 
+                className="min-h-screen bg-[#0A090D] text-white pt-24 pb-16 px-4 selection:bg-[#FF6B00] selection:text-white"
+                style={{ fontFamily: "'Poppins', 'Segoe UI', system-ui, sans-serif" }}
+            >
                 <OwnerNav />
-                <div className='flex items-center justify-center h-[calc(100vh-70px)] px-4'>
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className='text-center max-w-md'
-                    >
-                        <div className='w-24 h-24 mx-auto rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center mb-4'>
-                            <FaStore className='text-amber-500 text-5xl' />
-                        </div>
-                        <h2 className='text-2xl font-bold text-gray-800 mb-2'>No Shop Found</h2>
-                        <p className='text-gray-500 text-sm mb-6'>
-                            You need to create a shop first to view and manage orders.
-                        </p>
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate('/create-edit-shop')}
-                            className='px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium flex items-center justify-center gap-2 mx-auto shadow-sm shadow-orange-200'
-                        >
-                            Create Your Shop
-                        </motion.button>
-                    </motion.div>
-                </div>
-            </div>
-        )
-    }
-
-    if (loading) {
-        return (
-            <div className='min-h-screen bg-white'>
-                <OwnerNav />
-                <div className='flex items-center justify-center h-[calc(100vh-70px)]'>
-                    <div className='flex flex-col items-center gap-4'>
-                        <div className='relative'>
-                            <div className='w-16 h-16 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin' />
-                            <div className='absolute inset-0 animate-ping rounded-full border-2 border-orange-300/20' />
-                        </div>
-                        <p className='text-gray-500 text-sm font-medium animate-pulse flex items-center gap-2'>
-                            <span className='w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse' />
-                            Loading orders...
-                            <span className='w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse animation-delay-300' />
-                        </p>
+                <div className="max-w-md mx-auto mt-20 bg-[#13121A] border border-white/10 rounded-3xl p-10 text-center space-y-4 shadow-2xl">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-[#FF6B00]">
+                        <FaStore size={32} />
                     </div>
+                    <h2 className="text-xl font-black text-white">No Restaurant Registered</h2>
+                    <p className="text-xs text-gray-400">
+                        You must register your restaurant first to view and manage incoming customer orders.
+                    </p>
+                    <button
+                        onClick={() => navigate('/create-edit-shop')}
+                        className="px-6 py-2.5 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-wider transition cursor-pointer"
+                    >
+                        Register Restaurant
+                    </button>
                 </div>
             </div>
         )
     }
 
     return (
-        <div className='min-h-screen bg-[#f8f4f0] relative overflow-hidden pt-[70px] pb-[70px] md:pb-0'>
+        <div 
+            className="min-h-screen bg-[#0A090D] text-white pt-[90px] pb-24 px-4 sm:px-6 lg:px-8 selection:bg-[#FF6B00] selection:text-white"
+            style={{ fontFamily: "'Poppins', 'Segoe UI', system-ui, sans-serif" }}
+        >
             <OwnerNav />
 
-            <div className='relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8'>
+            <div className="max-w-7xl mx-auto space-y-6">
                 
                 {/* Header */}
-                <motion.div 
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 ${fadeUp}`}
-                >
-                    <div className='flex items-center gap-4'>
-                        <motion.button
-                            whileHover={{ scale: 1.05, rotate: -5 }}
-                            whileTap={{ scale: 0.95 }}
-                            className='w-11 h-11 rounded-xl bg-white border-2 border-gray-200 flex items-center justify-center hover:border-orange-300 hover:shadow-md transition-all duration-300 shadow-sm'
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/[0.08]">
+                    <div className="flex items-center gap-3">
+                        <button
                             onClick={() => navigate('/owner-dashboard')}
+                            className="w-10 h-10 rounded-xl bg-[#13121A] hover:bg-[#FF6B00] border border-white/10 hover:border-transparent text-white flex items-center justify-center transition cursor-pointer"
                         >
-                            <FaArrowLeft size={18} className='text-gray-600' />
-                        </motion.button>
+                            <FaArrowLeft size={13} />
+                        </button>
                         <div>
-                            <h1 className='text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight flex items-center gap-3'>
-                                📦 My Orders
-                                <span className='text-[10px] bg-orange-100 text-orange-700 px-2.5 py-0.5 rounded-full font-bold border border-orange-200'>
-                                    {stats.total} orders
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                                    Kitchen Order Management
+                                </h1>
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#FF6B00]/20 text-[#FF8C00]">
+                                    {stats.total}
                                 </span>
-                            </h1>
-                            <p className='text-gray-500 text-sm flex items-center gap-2 flex-wrap font-medium'>
-                                <span>Manage all your orders</span>
-                                {myShopData?.name && (
-                                    <>
-                                        <span className='w-1 h-1 rounded-full bg-gray-300' />
-                                        <span className='text-orange-600 font-semibold text-xs bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200'>
-                                            <FaStore size={10} className='inline mr-1' />
-                                            {myShopData.name}
-                                        </span>
-                                    </>
-                                )}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                                Real-time kitchen order dispatch, status updates & rider coordination
                             </p>
                         </div>
                     </div>
-                    
-                    <div className='flex items-center gap-3'>
-                        <div className='flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border-2 border-gray-200 shadow-sm'>
-                            <FaFire size={12} className='text-orange-500' />
-                            <span className='text-gray-600 text-xs font-medium'>
-                                {stats.pending} pending
-                            </span>
-                        </div>
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className='px-3 py-1.5 rounded-full bg-white border-2 border-gray-200 text-gray-600 hover:text-gray-800 hover:border-orange-300 transition-all duration-300 flex items-center gap-1.5 text-xs font-medium shadow-sm'
-                            onClick={handleRefresh}
-                            disabled={refreshing}
-                        >
-                            <FaSync className={refreshing ? 'animate-spin' : ''} size={12} />
-                            Refresh
-                        </motion.button>
-                    </div>
-                </motion.div>
 
-                {/* ✅ Error State */}
-                {error && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className='bg-red-50 border-2 border-red-200 p-4 rounded-2xl text-center mb-6'
+                    <button
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        className="self-start sm:self-auto px-4 py-2 rounded-xl bg-[#13121A] hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition flex items-center gap-2 cursor-pointer"
                     >
-                        <FaExclamationTriangle size={24} className='text-red-500 mx-auto mb-2' />
-                        <p className='text-gray-700 text-sm font-medium'>{error}</p>
-                        <button 
-                            onClick={fetchOrders}
-                            className='mt-2 px-4 py-1.5 rounded-lg bg-red-100 text-red-600 text-sm font-semibold hover:bg-red-200 transition'
-                        >
-                            Try Again
-                        </button>
-                    </motion.div>
-                )}
+                        <FaSync size={11} className={refreshing ? 'animate-spin text-[#FF6B00]' : 'text-gray-400'} />
+                        <span>Refresh Orders</span>
+                    </button>
+                </div>
 
-                {/* Stats Cards */}
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className={`grid grid-cols-3 sm:grid-cols-6 gap-3 mb-8 ${fadeUp}`}
-                >
-                    {[
-                        { label: 'Total', value: stats.total, icon: <FaShoppingBag size={14} />, color: 'text-gray-800', bg: 'bg-gray-50' },
-                        { label: 'Pending', value: stats.pending, icon: <FaHourglassHalf size={14} />, color: 'text-amber-600', bg: 'bg-amber-50' },
-                        { label: 'Preparing', value: stats.preparing, icon: <FaUtensils size={14} />, color: 'text-blue-600', bg: 'bg-blue-50' },
-                        { label: 'Out for Delivery', value: stats.outForDelivery, icon: <FaTruck size={14} />, color: 'text-orange-600', bg: 'bg-orange-50' },
-                        { label: 'Delivered', value: stats.delivered, icon: <FaCheckCircle size={14} />, color: 'text-green-600', bg: 'bg-green-50' },
-                        { label: 'Cancelled', value: stats.cancelled, icon: <FaTimesCircle size={14} />, color: 'text-red-600', bg: 'bg-red-50' }
-                    ].map((stat, idx) => (
-                        <motion.div
-                            key={idx}
-                            whileHover={{ y: -4, scale: 1.02 }}
-                            className={`bg-white border-2 border-gray-200 p-3 rounded-2xl text-center transition-all duration-300 hover:border-orange-300 shadow-sm`}
-                        >
-                            <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
-                            <div className={`text-[8px] font-semibold uppercase tracking-wider ${stat.color}`}>
-                                {stat.label}
-                            </div>
-                        </motion.div>
-                    ))}
-                </motion.div>
-
-                {/* Search & Filter */}
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className={`flex flex-col sm:flex-row gap-3 mb-6 ${fadeUp}`}
-                >
-                    <div className='flex-1 relative'>
-                        <FaSearch size={16} className='absolute left-4 top-1/2 -translate-y-1/2 text-gray-400' />
-                        <input
-                            type="text"
-                            placeholder='Search orders by ID or customer...'
-                            className='w-full bg-white border-2 border-gray-200 rounded-xl pl-11 pr-4 py-2.5 text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all duration-300 text-sm'
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                    <div className='flex gap-2 overflow-x-auto pb-1 scrollbar-hide'>
+                {/* Filter Pills and Search */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    
+                    {/* Status Tabs */}
+                    <div className="flex items-center gap-1.5 p-1 bg-[#13121A] border border-white/10 rounded-2xl overflow-x-auto">
                         {[
-                            { id: 'all', label: 'All', icon: '📋' },
-                            { id: 'pending', label: 'Pending', icon: '⏳' },
-                            { id: 'preparing', label: 'Preparing', icon: '🔧' },
-                            { id: 'out of delivery', label: 'Out for Delivery', icon: '🚚' },
-                            { id: 'delivered', label: 'Delivered', icon: '✅' },
-                            { id: 'cancelled', label: 'Cancelled', icon: '❌' }
-                        ].map((filter) => (
-                            <motion.button
-                                key={filter.id}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.95 }}
-                                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-300 ${
-                                    activeFilter === filter.id 
-                                        ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
-                                        : 'bg-white text-gray-600 hover:text-gray-800 hover:border-orange-300 border-2 border-gray-200'
+                            { id: 'all', label: 'All Orders', count: stats.total },
+                            { id: 'pending', label: 'Pending', count: stats.pending, alert: stats.pending > 0 },
+                            { id: 'preparing', label: 'Cooking', count: stats.preparing },
+                            { id: 'out of delivery', label: 'Out for Delivery', count: stats.outForDelivery },
+                            { id: 'delivered', label: 'Delivered', count: stats.delivered },
+                            { id: 'cancelled', label: 'Cancelled', count: stats.cancelled }
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveFilter(tab.id)}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                                    activeFilter === tab.id
+                                        ? 'bg-[#FF6B00] text-white shadow-md'
+                                        : 'text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
-                                onClick={() => setActiveFilter(filter.id)}
                             >
-                                {filter.icon} {filter.label}
-                            </motion.button>
+                                <span>{tab.label}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeFilter === tab.id ? 'bg-black/30' : 'bg-white/10'} ${tab.alert ? 'bg-rose-600 text-white animate-pulse' : ''}`}>
+                                    {tab.count}
+                                </span>
+                            </button>
                         ))}
                     </div>
-                </motion.div>
 
-                {/* Orders List */}
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className={`space-y-4 ${fadeUp}`}
-                >
-                    {filteredOrders.length === 0 ? (
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.5 }}
-                            className='bg-white border-2 border-gray-200 p-16 rounded-3xl text-center shadow-sm'
-                        >
-                            <div className='relative z-10'>
-                                <div className='w-24 h-24 mx-auto mb-4 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center'>
-                                    <FaShoppingBag size={36} className='text-gray-300' />
-                                </div>
-                                <h3 className='text-2xl font-bold text-gray-800 mb-2'>No Orders Found</h3>
-                                <p className='text-gray-500 text-sm max-w-sm mx-auto font-medium'>
-                                    {activeFilter !== 'all' 
-                                        ? `No orders with status "${activeFilter}"`
-                                        : 'No orders yet. Wait for customers!'}
-                                </p>
-                            </div>
-                        </motion.div>
-                    ) : (
-                        filteredOrders.map((order, index) => (
-                            <motion.div 
-                                key={order._id || index}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.05 * index }}
+                    {/* Search */}
+                    <div className="relative">
+                        <FaSearch size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+                        <input
+                            type="text"
+                            placeholder="Search by order ID or customer..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="bg-[#13121A] border border-white/10 focus:border-[#FF6B00] rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder:text-white/40 focus:outline-none transition w-full md:w-64"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-xs"
                             >
-                                <OwnerOrderCard 
-                                    key={order._id || index} 
-                                    data={order} 
-                                    onStatusUpdate={handleStatusUpdate}
-                                />
-                            </motion.div>
-                        ))
-                    )}
-                </motion.div>
+                                ✕
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Orders Content */}
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-24 space-y-3">
+                        <ClipLoader size={46} color="#FF6B00" />
+                        <p className="text-xs text-gray-400 animate-pulse">Loading restaurant orders...</p>
+                    </div>
+                ) : error ? (
+                    <div className="bg-red-500/10 border border-red-500/30 p-8 rounded-2xl text-center space-y-3 max-w-md mx-auto">
+                        <FaExclamationTriangle size={32} className="text-red-400 mx-auto" />
+                        <h3 className="text-base font-bold text-white">Error Loading Orders</h3>
+                        <p className="text-xs text-gray-400">{error}</p>
+                        <button
+                            onClick={fetchOrders}
+                            className="px-5 py-2 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold transition cursor-pointer"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : filteredOrders.length === 0 ? (
+                    <div className="bg-[#13121A] border border-white/10 rounded-3xl p-12 text-center max-w-md mx-auto space-y-3">
+                        <div className="w-14 h-14 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-400">
+                            <FaShoppingBag size={24} />
+                        </div>
+                        <h3 className="text-base font-bold text-white">No Orders Found</h3>
+                        <p className="text-xs text-gray-400">
+                            {searchQuery 
+                                ? `No orders matched "${searchQuery}".` 
+                                : `No orders currently in "${activeFilter}" status.`}
+                        </p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {filteredOrders.map((order, index) => (
+                            <OwnerOrderCard
+                                key={order._id || index}
+                                order={order}
+                                index={index}
+                                onStatusUpdate={fetchOrders}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
-
-            <style jsx>{`
-                @keyframes pulse {
-                    0%, 100% { opacity: 0.6; }
-                    50% { opacity: 1; }
-                }
-                .animate-pulse {
-                    animation: pulse 2s ease-in-out infinite;
-                }
-                .animation-delay-300 { animation-delay: 0.3s; }
-
-                .scrollbar-hide::-webkit-scrollbar { display: none; }
-                .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-            `}</style>
         </div>
     )
 }

@@ -45,7 +45,7 @@ body {
     color: #ffffff;
     font-family: 'Inter', -apple-system, sans-serif;
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 /* ✅ Animated Background */

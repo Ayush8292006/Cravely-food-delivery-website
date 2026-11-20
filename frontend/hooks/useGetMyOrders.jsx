@@ -39,7 +39,7 @@ function useGetMyOrders() {
             console.log(`🔍 Fetching orders for user: ${userData._id} (Attempt ${retryAttempt + 1}/${MAX_RETRIES})`)
             
             const result = await axios.get(
-                `${serverUrl}/api/order/my-orders`,
+                `${serverUrl}/api/order/my-orders?type=customer`,
                 { withCredentials: true }
             )
             

@@ -18,7 +18,7 @@ const shopRouter = express.Router()
 shopRouter.post("/create-edit", isAuth, upload.single("image"), createEditShop)
 shopRouter.get('/my-shop', isAuth, getMyShop)           // ✅ Single shop (backward compatible)
 shopRouter.get('/my-shops', isAuth, getMyShops)         // ✅ NEW: All shops of owner
-shopRouter.get('/:id', isAuth, getShopById)             // ✅ Get shop by ID
+shopRouter.get('/:id', getShopById)                     // ✅ Get shop by ID (public access for menu browsing)
 shopRouter.delete('/:id', isAuth, deleteShop)           // ✅ Delete shop
 
 // ✅ Customer routes

@@ -3,45 +3,65 @@ import DeliveryAssignment from "../models/deliveryAssignment.model.js"
 import Order from "../models/order.model.js"
 import Shop from "../models/shop.model.js"
 import User from "../models/user.model.js"
-import { sendDeliveryOtpMail, sendOrderConfirmation } from "../utils/mail.js"
-import { createOrder, verifyPayment as verifyRazorpayPayment } from "../utils/razorpay.js"
+import Coupon from "../models/coupon.model.js"
+import { 
+    sendDeliveryOtpMail, 
+    sendOrderConfirmation, 
+    sendPaymentSuccessMail, 
+    sendOrderStatusUpdateMail, 
+    sendOrderCancellationMail, 
+    sendRefundStatusMail 
+} from "../utils/mail.js"
+import { createOrder, verifyPayment as verifyRazorpayPayment, refundPayment } from "../utils/razorpay.js"
+import { sendNotification } from "./notification.controllers.js"
 
 // ============================================
-// ✅ CONSTANTS (match frontend)
+// ✅ CONSTANTS (Single Authoritative Source)
 // ============================================
 const MIN_ORDER_FOR_FREE_DELIVERY = 199
 const DELIVERY_FEE = 30
-const TAX_AMOUNT = 23 // ✅ Fixed tax ₹23 (same as CartPage/Checkout)
+const TAX_AMOUNT = 23 // Fixed GST ₹23
+const PLATFORM_FEE = 0 // Platform charge
+const COMMISSION_RATE = 10 // 10% platform commission on restaurant food subtotal
 
 // ============================================
 // ✅ HELPER: Calculate Delivery Fee
 // ============================================
-const calculateDeliveryFee = (totalAmount) => {
-    if (totalAmount < MIN_ORDER_FOR_FREE_DELIVERY) {
-        return DELIVERY_FEE
+const calculateDeliveryFee = (subtotal, isFreeDeliveryCoupon = false) => {
+    if (isFreeDeliveryCoupon || subtotal >= MIN_ORDER_FOR_FREE_DELIVERY) {
+        return 0
     }
-    return 0
+    return DELIVERY_FEE
 }
 
 // ============================================
-// ✅ PLACE ORDER - WITH TAX
+// ✅ PLACE ORDER - AUTHORITATIVE FINANCIAL CALCULATION
 // ============================================
 export const placeOrder = async (req, res) => {
     try {
         console.log("🔍 ===== ORDER PLACE START =====")
-        const { cartItems, paymentMethod, deliveryAddress, totalAmount, mobile, customerName } = req.body
+        const { 
+            cartItems, 
+            paymentMethod, 
+            deliveryAddress, 
+            mobile, 
+            customerName, 
+            couponCode, 
+            deliveryInstructions 
+        } = req.body
 
         if (!mobile) {
             return res.status(400).json({ message: "Mobile number is required" })
         }
 
         if (!cartItems || cartItems.length === 0) {
-            return res.status(400).json({ message: "cart is empty" })
+            return res.status(400).json({ message: "Cart is empty" })
         }
         if (!deliveryAddress?.text || !deliveryAddress?.latitude || !deliveryAddress?.longitude) {
             return res.status(400).json({ message: "Send complete Delivery Address" })
         }
 
+        // Group items by shop
         const groupItemsByShop = {}
         for (const item of cartItems) {
             let shopId = null
@@ -70,6 +90,7 @@ export const placeOrder = async (req, res) => {
 
         const shopOrders = []
         let subtotal = 0
+
         for (const shopId of Object.keys(groupItemsByShop)) {
             const shop = await Shop.findById(shopId).populate("owner")
             if (!shop) {
@@ -86,16 +107,24 @@ export const placeOrder = async (req, res) => {
                 }
             }
             const items = groupItemsByShop[shopId]
-            const shopSubtotal = items.reduce((sum, i) => sum + Number(i.price) * Number(i.quantity), 0)
+            const shopSubtotal = items.reduce((sum, i) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0)
             subtotal += shopSubtotal
+
+            const shopCommission = Math.round(shopSubtotal * (COMMISSION_RATE / 100))
+            const shopEarnings = Math.max(0, shopSubtotal - shopCommission)
+
             shopOrders.push({
                 shop: shop._id,
                 owner: shop.owner._id,
                 subtotal: shopSubtotal,
+                commissionRate: COMMISSION_RATE,
+                commissionAmount: shopCommission,
+                restaurantEarnings: shopEarnings,
+                settlementStatus: 'pending',
                 shopOrderItems: items.map((i) => ({
                     item: i.id || i._id,
-                    price: Number(i.price),
-                    quantity: Number(i.quantity),
+                    price: Number(i.price) || 0,
+                    quantity: Number(i.quantity) || 1,
                     name: i.name || 'Item'
                 }))
             })
@@ -105,20 +134,71 @@ export const placeOrder = async (req, res) => {
             return res.status(400).json({ message: "No valid shops found. Please try again." })
         }
 
-        // ✅ CALCULATE WITH TAX
-        const deliveryFee = calculateDeliveryFee(subtotal)
-        const taxAmount = TAX_AMOUNT
-        const finalTotal = subtotal + deliveryFee + taxAmount // ✅ Tax included
+        // Authoritative Coupon Validation
+        let discount = 0
+        let appliedCouponCode = null
+        let isFreeDeliveryCoupon = false
 
-        console.log(`💰 Subtotal: ₹${subtotal}, Delivery Fee: ₹${deliveryFee}, Tax: ₹${taxAmount}, Final Total: ₹${finalTotal}`)
+        if (couponCode && typeof couponCode === 'string') {
+            const cleanCode = couponCode.trim().toUpperCase()
+            if (cleanCode === 'FREEDEL') {
+                isFreeDeliveryCoupon = true
+                appliedCouponCode = 'FREEDEL'
+            } else {
+                const coupon = await Coupon.findOne({ code: cleanCode, isActive: true })
+                if (coupon) {
+                    const isExpired = coupon.validTill && new Date(coupon.validTill) < new Date()
+                    const meetsMin = !coupon.minOrderAmount || subtotal >= coupon.minOrderAmount
+                    if (!isExpired && meetsMin) {
+                        appliedCouponCode = coupon.code
+                        if (coupon.discountType === "percentage") {
+                            discount = Math.round((subtotal * coupon.discountValue) / 100)
+                            if (coupon.maxDiscount && discount > coupon.maxDiscount) {
+                                discount = coupon.maxDiscount
+                            }
+                        } else {
+                            discount = coupon.discountValue
+                        }
+                        if (discount > subtotal) discount = subtotal
+                    }
+                }
+            }
+        }
+
+        // Authoritative Fee & Total Calculation
+        const deliveryFee = calculateDeliveryFee(subtotal, isFreeDeliveryCoupon)
+        const taxAmount = TAX_AMOUNT
+        const platformFee = PLATFORM_FEE
+        const finalTotal = Math.max(0, subtotal - discount + deliveryFee + taxAmount + platformFee)
+
+        const totalCommission = shopOrders.reduce((sum, so) => sum + so.commissionAmount, 0)
+        const totalRestaurantEarnings = shopOrders.reduce((sum, so) => sum + so.restaurantEarnings, 0)
+
+        // Generate Unique Invoice Number
+        const invoiceNumber = `CRV-INV-${new Date().getFullYear()}-${Date.now().toString().slice(-7)}`
+
+        console.log(`💰 [AUTHORITATIVE ORDER MATH] Subtotal: ₹${subtotal}, Delivery Fee: ₹${deliveryFee}, Tax: ₹${taxAmount}, Discount: ₹${discount}, Platform Fee: ₹${platformFee} => Total: ₹${finalTotal}`)
 
         const newOrder = await Order.create({
+            invoiceNumber,
             user: req.userId,
             paymentMethod,
             deliveryAddress,
-            totalAmount: finalTotal,        // ✅ Tax included
-            deliveryFee: deliveryFee,
-            taxAmount: taxAmount,           // ✅ Save tax
+            subtotal,
+            discountAmount: discount,
+            couponCode: appliedCouponCode,
+            deliveryFee,
+            taxAmount,
+            platformFee,
+            totalAmount: finalTotal,
+            amountPaid: 0,
+            amountRefunded: 0,
+            paymentStatus: 'pending',
+            transactionId: null,
+            deliveryPayout: 50,
+            commissionAmount: totalCommission,
+            restaurantEarnings: totalRestaurantEarnings,
+            deliveryInstructions: deliveryInstructions || "",
             shopOrders,
             payment: false,
             mobile: mobile,
@@ -126,36 +206,58 @@ export const placeOrder = async (req, res) => {
         })
 
         await newOrder.populate("shopOrders.shopOrderItems.item", "name image price")
-        await newOrder.populate("shopOrders.shop", "name")
-        await newOrder.populate("shopOrders.owner", "fullName socketId")
+        await newOrder.populate("shopOrders.shop", "name address city")
+        await newOrder.populate("shopOrders.owner", "fullName socketId email mobile")
         await newOrder.populate("user", "fullName email mobile")
 
-        // ✅ ONLINE PAYMENT - Razorpay with tax
+        // In-app Notification
+        try {
+            await sendNotification(
+                req.userId,
+                "Order Placed",
+                `Your order #${newOrder._id.toString().slice(-6).toUpperCase()} has been placed successfully for ₹${finalTotal}.`,
+                "order",
+                `/track-order/${newOrder._id}`
+            )
+        } catch (nErr) {
+            console.log("Notification error:", nErr.message)
+        }
+
+        // ✅ ONLINE PAYMENT - Create Razorpay Order
         if (paymentMethod === "online") {
-            const razorOrder = await createOrder(finalTotal) // ✅ finalTotal includes tax
+            const razorOrder = await createOrder(finalTotal)
             newOrder.razorpayOrderId = razorOrder.id
             await newOrder.save()
+
             return res.status(200).json({
                 razorpayOrderId: razorOrder.id,
                 orderId: newOrder._id,
-                amount: razorOrder.amount,     // ✅ Amount with tax
+                invoiceNumber: newOrder.invoiceNumber,
+                amount: razorOrder.amount,
                 currency: razorOrder.currency,
-                keyId: process.env.RAZORPAY_KEY_ID,
-                deliveryFee: deliveryFee,
-                taxAmount: taxAmount,          // ✅ Send tax
-                subtotal: subtotal,
-                finalTotal: finalTotal
+                keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_TGBOrn6rcZhh6H',
+                subtotal,
+                discountAmount: discount,
+                couponCode: appliedCouponCode,
+                deliveryFee,
+                taxAmount,
+                platformFee,
+                totalAmount: finalTotal,
+                paymentStatus: 'pending'
             })
         }
 
-        // ✅ COD - Send email
+        // ✅ COD - Set transaction ID & Send confirmation email
+        newOrder.transactionId = `COD-${newOrder._id.toString().slice(-8).toUpperCase()}`
+        await newOrder.save()
+
         try {
             await sendOrderConfirmation(newOrder.user, newOrder)
         } catch (emailError) {
             console.log("⚠️ Email error:", emailError.message)
         }
 
-        // ✅ Socket emit for COD
+        // Socket emit for COD
         const io = req.app.get('io')
         if (io) {
             newOrder.shopOrders.forEach(shopOrder => {
@@ -163,16 +265,21 @@ export const placeOrder = async (req, res) => {
                 if (ownerSocketId) {
                     io.to(ownerSocketId).emit('newOrder', {
                         _id: newOrder._id,
+                        invoiceNumber: newOrder.invoiceNumber,
                         paymentMethod: newOrder.paymentMethod,
                         user: newOrder.user,
                         shopOrders: shopOrder,
                         createdAt: newOrder.createdAt,
                         deliveryAddress: newOrder.deliveryAddress,
                         payment: newOrder.payment,
-                        deliveryFee: deliveryFee,
-                        taxAmount: taxAmount,
-                        subtotal: subtotal,
-                        mobile: mobile
+                        paymentStatus: newOrder.paymentStatus,
+                        subtotal: shopOrder.subtotal,
+                        restaurantEarnings: shopOrder.restaurantEarnings,
+                        commissionAmount: shopOrder.commissionAmount,
+                        deliveryFee,
+                        taxAmount,
+                        totalAmount: finalTotal,
+                        mobile
                     })
                 }
             })
@@ -180,10 +287,11 @@ export const placeOrder = async (req, res) => {
 
         return res.status(201).json({
             ...newOrder.toObject(),
-            deliveryFee: deliveryFee,
-            taxAmount: taxAmount,
-            subtotal: subtotal,
-            finalTotal: finalTotal
+            subtotal,
+            deliveryFee,
+            taxAmount,
+            discountAmount: discount,
+            totalAmount: finalTotal
         })
 
     } catch (error) {
@@ -201,7 +309,7 @@ export const verifyRazorpay = async (req, res) => {
         const isValid = await verifyRazorpayPayment(razorpay_payment_id, razorpay_order_id, razorpay_signature)
 
         if (!isValid) {
-            return res.status(400).json({ message: "Payment verification failed" })
+            return res.status(400).json({ message: "Payment verification failed: Invalid digital signature" })
         }
 
         const order = await Order.findById(orderId)
@@ -209,37 +317,61 @@ export const verifyRazorpay = async (req, res) => {
             return res.status(400).json({ message: "Order not found" })
         }
 
+        // Update single authoritative payment record
         order.payment = true
+        order.paymentStatus = 'paid'
+        order.amountPaid = order.totalAmount
+        order.transactionId = razorpay_payment_id
         order.razorpayPaymentId = razorpay_payment_id
         await order.save()
 
         await order.populate("user", "fullName email mobile")
-        await order.populate("shopOrders.shop", "name")
-        await order.populate("shopOrders.owner", "fullName socketId")
+        await order.populate("shopOrders.shop", "name address city")
+        await order.populate("shopOrders.owner", "fullName socketId email mobile")
         await order.populate("shopOrders.shopOrderItems.item", "name image price")
 
+        // Send payment confirmation email and order confirmation email
         try {
+            await sendPaymentSuccessMail(order.user, order)
             await sendOrderConfirmation(order.user, order)
         } catch (emailError) {
             console.log("Email error:", emailError.message)
         }
 
+        try {
+            await sendNotification(
+                order.user._id,
+                "Payment Successful",
+                `Payment of ₹${order.totalAmount} for order #${order._id.toString().slice(-6).toUpperCase()} was verified successfully.`,
+                "payment",
+                `/track-order/${order._id}`
+            )
+        } catch (nErr) {
+            console.log("Notification error:", nErr.message)
+        }
+
         const io = req.app.get('io')
         if (io) {
             order.shopOrders.forEach(shopOrder => {
-                const ownerSocketId = shopOrder.owner.socketId
+                const ownerSocketId = shopOrder.owner?.socketId
                 if (ownerSocketId) {
                     io.to(ownerSocketId).emit('newOrder', {
                         _id: order._id,
+                        invoiceNumber: order.invoiceNumber,
                         paymentMethod: order.paymentMethod,
                         user: order.user,
                         shopOrders: shopOrder,
                         createdAt: order.createdAt,
                         deliveryAddress: order.deliveryAddress,
                         payment: order.payment,
+                        paymentStatus: order.paymentStatus,
+                        transactionId: order.transactionId,
+                        subtotal: shopOrder.subtotal,
+                        restaurantEarnings: shopOrder.restaurantEarnings,
+                        commissionAmount: shopOrder.commissionAmount,
                         deliveryFee: order.deliveryFee || 0,
                         taxAmount: order.taxAmount || 0,
-                        subtotal: order.totalAmount - (order.deliveryFee || 0) - (order.taxAmount || 0)
+                        totalAmount: order.totalAmount
                     })
                 }
             })
@@ -249,7 +381,7 @@ export const verifyRazorpay = async (req, res) => {
 
     } catch (error) {
         console.log("❌ Verify payment error:", error.message)
-        return res.status(500).json({ message: `verify payment error: ${error.message}` })
+        return res.status(500).json({ message: `Verify payment error: ${error.message}` })
     }
 }
 
@@ -263,51 +395,77 @@ export const getMyOrders = async (req, res) => {
             return res.status(404).json({ message: "User not found" })
         }
 
+        const { type } = req.query
         let orders = []
-        
-        if (user.role === "user") {
-            orders = await Order.find({ user: req.userId })
+
+        // Helper to populate all rich order fields
+        const populateOrderQuery = (q) => {
+            return q
                 .sort({ createdAt: -1 })
                 .populate("user", "fullName email mobile")
-                .populate("shopOrders.shop", "name")
+                .populate("shopOrders.shop", "name image address city rating priceForTwo")
                 .populate("shopOrders.owner", "fullName email mobile")
-                .populate("shopOrders.shopOrderItems.item", "name image price")
-        } 
-        else if (user.role === "deliveryBoy") {
-            orders = await Order.find({
-                "shopOrders.assignedDeliveryBoy": req.userId
-            })
-            .sort({ createdAt: -1 })
-            .populate("user", "fullName email mobile")
-            .populate("shopOrders.shop", "name")
-            .populate("shopOrders.owner", "fullName email mobile")
-            .populate("shopOrders.shopOrderItems.item", "name image price")
-            .populate("shopOrders.assignedDeliveryBoy", "fullName mobile")
-            
-            orders = orders.map(order => {
-                const orderObj = order.toObject()
+                .populate("shopOrders.shopOrderItems.item", "name image price foodType category")
+                .populate("shopOrders.assignedDeliveryBoy", "fullName mobile email vehicle")
+        }
+
+        // 1. Explicit Customer Orders (or default for role 'user' / 'superAdmin')
+        if (type === "customer" || user.role === "user" || (user.role === "superAdmin" && type !== "owner" && type !== "deliveryBoy")) {
+            orders = await populateOrderQuery(Order.find({ user: req.userId }))
+        }
+        // 2. Explicit Delivery Boy Orders
+        else if (type === "deliveryBoy" || user.role === "deliveryBoy") {
+            const deliveryOrders = await populateOrderQuery(
+                Order.find({ "shopOrders.assignedDeliveryBoy": req.userId })
+            )
+            orders = deliveryOrders.map(order => {
+                const orderObj = order.toObject ? order.toObject() : order
                 return {
                     ...orderObj,
                     mobile: order.mobile || orderObj.user?.mobile || null,
                     customerMobile: order.mobile || orderObj.user?.mobile || null
                 }
             })
-            
             console.log(`📦 Found ${orders.length} assigned orders for delivery boy`)
         }
-        else if (user.role === "owner") {
-            const allOrders = await Order.find({ "shopOrders.owner": req.userId })
-                .sort({ createdAt: -1 })
-                .populate("user", "fullName email mobile")
-                .populate("shopOrders.shop", "name")
-                .populate("shopOrders.owner", "fullName email mobile")
-                .populate("shopOrders.shopOrderItems.item", "name image price")
-                .populate("shopOrders.assignedDeliveryBoy", "fullName mobile")
+        // 3. Explicit Restaurant Owner Orders
+        else if (type === "owner" || user.role === "owner") {
+            // Find all shops owned by this user
+            const myShops = await Shop.find({ owner: req.userId }).select('_id')
+            const myShopIds = myShops.map(s => s._id)
 
-            orders = allOrders.map(order => ({
-                ...order._doc,
-                shopOrders: order.shopOrders.filter(o => o.owner._id.toString() === req.userId.toString())
-            })).filter(order => order.shopOrders.length > 0)
+            const allOrders = await populateOrderQuery(
+                Order.find({
+                    $or: [
+                        { "shopOrders.owner": req.userId },
+                        { "shopOrders.shop": { $in: myShopIds } }
+                    ]
+                })
+            )
+
+            orders = allOrders.map(order => {
+                const orderObj = order.toObject ? order.toObject() : order
+                const filteredShopOrders = (orderObj.shopOrders || []).filter(o => {
+                    const ownerId = o.owner?._id || o.owner
+                    const shopId = o.shop?._id || o.shop
+                    return (
+                        (ownerId && ownerId.toString() === req.userId.toString()) ||
+                        (shopId && myShopIds.some(msId => msId.toString() === shopId.toString()))
+                    )
+                })
+                return {
+                    ...orderObj,
+                    shopOrders: filteredShopOrders
+                }
+            }).filter(order => order.shopOrders.length > 0)
+
+            // Fallback: If owner placed customer orders and has no incoming restaurant orders yet, return customer orders
+            if (orders.length === 0 && !type) {
+                orders = await populateOrderQuery(Order.find({ user: req.userId }))
+            }
+        } else {
+            // Fallback for any other case: return orders placed by this user
+            orders = await populateOrderQuery(Order.find({ user: req.userId }))
         }
 
         return res.status(200).json(orders)
@@ -595,11 +753,31 @@ export const updateOrderStatus = async (req, res) => {
             }
         }
 
+        // If order delivered and COD, mark payment as received
+        if (status === 'delivered') {
+            if (order.paymentMethod === 'cod') {
+                order.payment = true
+                order.paymentStatus = 'paid'
+                order.amountPaid = order.totalAmount
+                order.transactionId = order.transactionId || `COD-${order._id.toString().slice(-8).toUpperCase()}`
+            }
+            shopOrder.deliveredAt = new Date()
+        }
+
         await order.save()
         const updatedShopOrder = order.shopOrders.find(o => o.shop.toString() == shopId)
         await order.populate("shopOrders.shop", "name")
         await order.populate("shopOrders.assignedDeliveryBoy", "fullName email mobile")
-        await order.populate("user", "socketId")
+        await order.populate("user", "fullName email mobile socketId")
+
+        // Trigger email notification for important status transitions
+        if (['preparing', 'out of delivery', 'delivered'].includes(status) && order.user?.email) {
+            try {
+                await sendOrderStatusUpdateMail(order.user, order, status)
+            } catch (mailErr) {
+                console.log("Status update email error:", mailErr.message)
+            }
+        }
 
         const io = req.app.get('io')
         if (io) {
@@ -926,7 +1104,7 @@ export const cancelOrder = async (req, res) => {
         }
 
         if (order.isCancelled) {
-            return res.status(400).json({ message: "Order already cancelled" })
+            return res.status(400).json({ message: "Order is already cancelled" })
         }
 
         const shopOrder = order.shopOrders?.[0]
@@ -936,26 +1114,82 @@ export const cancelOrder = async (req, res) => {
 
         const status = shopOrder.status || 'pending'
         if (status === 'delivered') {
-            return res.status(400).json({ message: "Order already delivered. Cannot cancel." })
+            return res.status(400).json({ message: "Order has already been delivered. Please use 'Request Refund' instead." })
         }
         if (status === 'out of delivery') {
-            return res.status(400).json({ message: "Order is out for delivery. Cannot cancel." })
+            return res.status(400).json({ message: "Order is already out for delivery and cannot be cancelled directly." })
         }
         if (status === 'cancelled') {
-            return res.status(400).json({ message: "Order already cancelled." })
+            return res.status(400).json({ message: "Order is already cancelled." })
         }
 
         order.isCancelled = true
         order.cancelledAt = new Date()
         order.cancellationReason = reason || 'other'
         order.cancellationNote = note || ''
-        shopOrder.status = 'cancelled'
+        order.shopOrders.forEach(so => {
+            so.status = 'cancelled'
+            so.settlementStatus = 'cancelled'
+        })
 
-        if (order.paymentMethod === 'online' && order.payment) {
+        // Clean up any pending delivery assignment
+        await DeliveryAssignment.updateMany(
+            { order: order._id, status: { $in: ['broadcasted', 'assigned'] } },
+            { status: 'cancelled' }
+        )
+
+        // Handle Online Refund
+        if (order.paymentMethod === 'online' && (order.payment || order.paymentStatus === 'paid')) {
             order.refundStatus = 'processing'
+            order.refundAmount = order.totalAmount || 0
+
+            if (order.razorpayPaymentId) {
+                try {
+                    const rf = await refundPayment(order.razorpayPaymentId, order.totalAmount, {
+                        orderId: order._id.toString(),
+                        reason: reason || 'Customer cancellation'
+                    })
+                    if (rf && rf.id) {
+                        order.refundStatus = 'completed'
+                        order.refundId = rf.id
+                        order.refundedAt = new Date()
+                        order.amountRefunded = order.totalAmount
+                        order.paymentStatus = 'refunded'
+                        console.log(`✅ Instant Razorpay refund completed: ${rf.id}`)
+                    }
+                } catch (rfErr) {
+                    console.log("⚠️ Razorpay refund API note:", rfErr.message || rfErr)
+                    order.refundStatus = 'processing'
+                }
+            }
+        } else {
+            order.refundStatus = 'not_applicable'
+            order.paymentStatus = 'cancelled'
         }
 
         await order.save()
+
+        // Send Email Notification
+        try {
+            await sendOrderCancellationMail(order.user, order, reason)
+            if (order.refundStatus === 'completed') {
+                await sendRefundStatusMail(order.user, order)
+            }
+        } catch (mailErr) {
+            console.log("Cancellation email error:", mailErr.message)
+        }
+
+        try {
+            await sendNotification(
+                order.user._id,
+                "Order Cancelled",
+                `Order #${order._id.toString().slice(-6).toUpperCase()} was cancelled.${order.refundStatus === 'completed' ? ' ₹' + order.refundAmount + ' refund processed instantly via Razorpay!' : (order.refundStatus === 'processing' ? ' Refund of ₹' + order.refundAmount + ' is processing.' : '')}`,
+                "refund",
+                `/track-order/${order._id}`
+            )
+        } catch (notifErr) {
+            console.log("Notification error:", notifErr.message)
+        }
 
         try {
             const io = req.app.get('io')
@@ -980,6 +1214,158 @@ export const cancelOrder = async (req, res) => {
     } catch (error) {
         console.log("❌ Cancel order error:", error.message)
         return res.status(500).json({ message: `Cancel order error: ${error.message}` })
+    }
+}
+
+// ============================================
+// ✅ REQUEST REFUND (Customer Action for Delivered/Disputed Orders)
+// ============================================
+export const requestRefund = async (req, res) => {
+    try {
+        const { orderId } = req.params
+        const { reason, note } = req.body
+
+        if (!reason) {
+            return res.status(400).json({ message: "Refund reason is required" })
+        }
+
+        const order = await Order.findById(orderId).populate('user', 'fullName email')
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" })
+        }
+
+        if (order.user._id.toString() !== req.userId) {
+            return res.status(403).json({ message: "Unauthorized to request refund for this order" })
+        }
+
+        if (order.refundStatus === 'completed') {
+            return res.status(400).json({ message: "Refund has already been completed for this order" })
+        }
+        if (order.refundStatus === 'requested' || order.refundStatus === 'processing') {
+            return res.status(400).json({ message: `Refund is already ${order.refundStatus}. Our team is reviewing it.` })
+        }
+
+        order.refundStatus = 'requested'
+        order.refundAmount = order.totalAmount || 0
+        order.refundReason = reason
+        if (note) {
+            order.cancellationNote = note
+        }
+        await order.save()
+
+        try {
+            await sendNotification(
+                order.user._id,
+                "Refund Requested",
+                `Your refund request of ₹${order.refundAmount} for order #${order._id.toString().slice(-6).toUpperCase()} has been submitted and is under review.`,
+                "refund",
+                `/my-orders`
+            )
+        } catch (e) {}
+
+        return res.status(200).json({
+            success: true,
+            message: "Refund request submitted successfully. Our team will review and process it within 24-48 hours.",
+            order
+        })
+    } catch (error) {
+        console.log("❌ Refund request error:", error.message)
+        return res.status(500).json({ message: error.message })
+    }
+}
+
+// ============================================
+// ✅ GET ORDER INVOICE (Authoritative Backend Data)
+// ============================================
+export const getOrderInvoice = async (req, res) => {
+    try {
+        const { orderId } = req.params
+        const order = await Order.findById(orderId)
+            .populate('user', 'fullName email mobile')
+            .populate('shopOrders.shop', 'name address city image phone')
+            .populate('shopOrders.shopOrderItems.item', 'name price image')
+            .populate('shopOrders.assignedDeliveryBoy', 'fullName mobile')
+
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" })
+        }
+
+        // Authorize: customer, owner, or superAdmin
+        const isCustomer = order.user?._id?.toString() === req.userId
+        const isOwner = order.shopOrders?.some(so => so.owner?.toString() === req.userId)
+        const currentUser = await User.findById(req.userId)
+        const isAdmin = currentUser?.role === 'superAdmin'
+
+        if (!isCustomer && !isOwner && !isAdmin) {
+            return res.status(403).json({ message: "Access denied to invoice" })
+        }
+
+        // Generate invoice number if not already present on legacy records
+        if (!order.invoiceNumber) {
+            order.invoiceNumber = `CRV-INV-${new Date(order.createdAt).getFullYear()}-${order._id.toString().slice(-7).toUpperCase()}`
+            await order.save()
+        }
+
+        const firstShop = order.shopOrders?.[0]?.shop
+        const items = []
+        order.shopOrders?.forEach(so => {
+            so.shopOrderItems?.forEach(item => {
+                const price = Number(item.price) || 0
+                const quantity = Number(item.quantity) || 1
+                items.push({
+                    name: item.name || item.item?.name || 'Food Item',
+                    price,
+                    quantity,
+                    total: price * quantity
+                })
+            })
+        })
+
+        const subtotal = order.subtotal || items.reduce((s, i) => s + i.total, 0)
+        const deliveryFee = order.deliveryFee ?? 0
+        const taxAmount = order.taxAmount ?? 23
+        const platformFee = order.platformFee ?? 0
+        const discountAmount = order.discountAmount ?? 0
+        const totalAmount = order.totalAmount ?? Math.max(0, subtotal - discountAmount + deliveryFee + taxAmount + platformFee)
+
+        const invoicePayload = {
+            invoiceNumber: order.invoiceNumber,
+            orderId: order._id,
+            invoiceDate: order.createdAt,
+            paymentMethod: order.paymentMethod,
+            paymentStatus: order.paymentStatus || (order.payment ? 'paid' : 'pending'),
+            transactionId: order.transactionId || order.razorpayPaymentId || null,
+            customer: {
+                name: order.customerName || order.user?.fullName || 'Customer',
+                email: order.user?.email || 'N/A',
+                mobile: order.mobile || order.user?.mobile || 'N/A',
+                deliveryAddress: order.deliveryAddress?.text || 'Standard Address'
+            },
+            restaurant: {
+                name: firstShop?.name || 'Cravely Partner',
+                address: firstShop?.address || 'City Center',
+                city: firstShop?.city || 'Noida'
+            },
+            items,
+            financials: {
+                subtotal,
+                discountAmount,
+                couponCode: order.couponCode || null,
+                deliveryFee,
+                taxAmount,
+                platformFee,
+                totalAmount,
+                amountPaid: order.amountPaid || (order.payment ? totalAmount : 0),
+                amountRefunded: order.amountRefunded || 0,
+                refundStatus: order.refundStatus || null,
+                refundId: order.refundId || null
+            }
+        }
+
+        return res.status(200).json(invoicePayload)
+    } catch (error) {
+        console.log("❌ Invoice fetch error:", error.message)
+        return res.status(500).json({ message: error.message })
     }
 }
 

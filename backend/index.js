@@ -12,6 +12,9 @@ import orderRouter from "./routes/order.routes.js"
 import reviewRouter from "./routes/review.routes.js"
 import deliveryBoyRatingRouter from "./routes/deliveryBoyRating.routes.js"
 import superAdminRouter from "./routes/superAdmin.routes.js"
+import couponRouter from "./routes/coupon.routes.js"
+import supportRouter from "./routes/support.routes.js"
+import notificationRouter from "./routes/notification.routes.js"
 import http from "http"
 import { Server } from "socket.io"
 import { socketHandler } from "./socket.js"
@@ -59,6 +62,9 @@ app.use("/api/order", orderRouter)
 app.use("/api/review", reviewRouter)
 app.use("/api/delivery-rating", deliveryBoyRatingRouter)
 app.use("/api/super-admin", superAdminRouter)
+app.use("/api/coupon", couponRouter)
+app.use("/api/support", supportRouter)
+app.use("/api/notification", notificationRouter)
 
 app.get('/', (req, res) => {
     res.json({

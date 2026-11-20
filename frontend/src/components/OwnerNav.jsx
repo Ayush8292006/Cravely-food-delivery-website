@@ -1,49 +1,42 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import axios from 'axios'
-import { serverUrl } from '../../config';
+import { serverUrl } from '../../config'
 import { setUserData } from '../redux/userSlice'
 import { 
     FaHamburger, FaStore, FaUtensils, FaShoppingBag, 
-    FaUserCircle, FaSignOutAlt, FaCrown, FaHome,
+    FaUserCircle, FaSignOutAlt, FaHome,
     FaChartLine, FaTruck, FaPlus,
-    FaArrowLeft, FaSearch, FaTimes, FaChevronDown, FaChevronUp
+    FaSearch, FaTimes, FaReceipt
 } from 'react-icons/fa'
-import { MdRestaurant, MdDeliveryDining, MdVerified } from 'react-icons/md'
-import { BiRestaurant } from "react-icons/bi";
-import { IoReceiptOutline, IoLogOut } from "react-icons/io5";
-import { FiShoppingCart } from "react-icons/fi";
-import { GiKnifeFork } from "react-icons/gi";
+import { MdRestaurant, MdVerified } from 'react-icons/md'
+import { IoReceiptOutline, IoLogOut } from "react-icons/io5"
 import { toast } from 'react-toastify'
 import { motion, AnimatePresence } from 'framer-motion'
-import LocationSelector from './LocationSelector';
 
 function OwnerNav() {
     const navigate = useNavigate()
     const dispatch = useDispatch()
-    const { userData, shopsInMyCity, currentCity } = useSelector(state => state.user)
+    const { userData } = useSelector(state => state.user)
     const [shopData, setShopData] = useState(null)
     const [notifications, setNotifications] = useState(0)
     const [showDropdown, setShowDropdown] = useState(false)
-    const [showRestaurants, setShowRestaurants] = useState(false)
-    const [showSearch, setShowSearch] = useState(false)
-    const [searchQuery, setSearchQuery] = useState('')
     const [scrolled, setScrolled] = useState(false)
     const [loading, setLoading] = useState(true)
-    const dropdownRef = React.useRef(null)
-    const restaurantRef = React.useRef(null)
+    const dropdownRef = useRef(null)
 
     useEffect(() => {
-        const handleScroll = () => setScrolled(window.scrollY > 30)
+        const handleScroll = () => setScrolled(window.scrollY > 20)
         window.addEventListener('scroll', handleScroll)
         return () => window.removeEventListener('scroll', handleScroll)
     }, [])
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setShowDropdown(false)
-            if (restaurantRef.current && !restaurantRef.current.contains(e.target)) setShowRestaurants(false)
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setShowDropdown(false)
+            }
         }
         document.addEventListener('click', handleClickOutside)
         return () => document.removeEventListener('click', handleClickOutside)
@@ -65,7 +58,7 @@ function OwnerNav() {
                     setShopData(response.data.shop)
                 }
             } catch (error) {
-                console.log('❌ No shop found for owner')
+                console.log('No shop found for owner')
             } finally {
                 setLoading(false)
             }
@@ -85,238 +78,176 @@ function OwnerNav() {
                 )
                 setNotifications(response.data.count || 0)
             } catch (error) {
-                console.log('❌ Error fetching notifications:', error)
+                console.log('Error fetching pending orders count:', error)
             }
         }
 
         fetchNotifications()
-        
-        const interval = setInterval(fetchNotifications, 30000)
+        const interval = setInterval(fetchNotifications, 25000)
         return () => clearInterval(interval)
     }, [userData?._id])
 
     const handleLogout = async () => {
         try {
             await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
-            localStorage.removeItem('userData')
-            sessionStorage.removeItem('userData')
             dispatch(setUserData(null))
-            toast.success('Logged out successfully! 👋')
-            navigate('/signin')
+            toast.success("Logged out successfully")
+            navigate("/signin")
         } catch (error) {
-            toast.error('Logout failed!')
+            toast.error("Logout failed")
         }
     }
-
-    const handleSearch = (e) => {
-        e.preventDefault()
-        if (searchQuery.trim()) {
-            navigate(`/search?q=${encodeURIComponent(searchQuery)}`)
-            setShowSearch(false)
-            setSearchQuery('')
-        }
-    }
-
-    const getRoleBadge = () => {
-        switch(userData?.role) {
-            case 'owner': return { label: 'Owner', color: 'bg-orange-100 text-orange-700' }
-            case 'deliveryBoy': return { label: 'Delivery', color: 'bg-blue-100 text-blue-700' }
-            case 'superAdmin': return { label: 'Admin', color: 'bg-purple-100 text-purple-700' }
-            default: return { label: 'User', color: 'bg-gray-100 text-gray-600' }
-        }
-    }
-
-    const roleBadge = getRoleBadge()
 
     return (
-        <nav className={`w-full h-[64px] flex items-center justify-between px-4 sm:px-6 lg:px-10 fixed top-0 z-[9999] transition-all duration-300 ${
-            scrolled 
-                ? 'bg-[#e85d04] shadow-md' 
-                : 'bg-[#e85d04]'
-        }`}>
-
-            {/* Logo */}
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate("/owner-dashboard")}>
-                <div className='w-9 h-9 rounded-xl bg-white flex items-center justify-center'>
-                    <FaHamburger className="text-[#e85d04] text-lg" />
+        <nav 
+            className={`w-full h-[68px] flex items-center justify-between px-4 sm:px-6 lg:px-8 fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
+                scrolled 
+                    ? 'bg-[#0A090D]/95 backdrop-blur-md border-white/10 shadow-xl shadow-black/50' 
+                    : 'bg-[#0A090D] border-white/[0.08]'
+            }`}
+            style={{ fontFamily: "'Poppins', 'Segoe UI', system-ui, sans-serif" }}
+        >
+            {/* Left: Brand & Owner Badge */}
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/owner-dashboard")}>
+                <div className="w-10 h-10 rounded-xl bg-[#13121A] border border-white/10 flex items-center justify-center text-[#FF6B00]">
+                    <FaHamburger size={18} />
                 </div>
-                <div className='hidden sm:block'>
-                    <h1 className='text-lg font-bold text-white leading-none tracking-tight'>Cravely</h1>
-                    <p className='text-[8px] text-white/50 uppercase tracking-[0.15em]'>Owner Panel</p>
+                <div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-lg font-black text-white tracking-tight">CRAVELY</span>
+                        <span className="text-[9px] font-black uppercase tracking-wider bg-[#FF6B00] text-white px-2 py-0.5 rounded-full">
+                            Partner
+                        </span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-medium">Merchant Portal</p>
                 </div>
             </div>
 
-            {/* Center - Quick Stats */}
-            <div className='hidden md:flex items-center gap-3'>
-                <div className='flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15'>
-                    <FaStore className="text-white text-xs" />
-                    <span className="text-white/80 text-xs font-medium">
-                        {shopData?.name || (loading ? 'Loading...' : 'No Shop')}
+            {/* Center: Live Restaurant Status & Quick Metric */}
+            <div className="hidden md:flex items-center gap-2.5">
+                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#13121A] border border-white/10 text-xs text-gray-300 font-medium">
+                    <FaStore size={12} className="text-[#FF6B00]" />
+                    <span className="truncate max-w-[150px] font-bold text-white">
+                        {shopData?.name || (loading ? 'Loading...' : 'No Shop Setup')}
                     </span>
                 </div>
-                <div className='flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15'>
-                    <FaUtensils className="text-white text-xs" />
-                    <span className="text-white/80 text-xs font-medium">
-                        {shopData?.items?.length || 0} Items
-                    </span>
+
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#13121A] border border-white/10 text-xs text-gray-300">
+                    <FaUtensils size={11} className="text-amber-400" />
+                    <span>{shopData?.items?.length || 0} Dishes</span>
                 </div>
+
                 {shopData?.isApproved ? (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                        <span className="text-green-300 text-[10px] font-medium">Approved</span>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Live on Cravely</span>
                     </div>
-                ) : shopData && (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        <span className="text-amber-300 text-[10px] font-medium">Pending</span>
+                ) : shopData ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <span>Pending Approval</span>
                     </div>
-                )}
+                ) : null}
             </div>
 
-            {/* Right */}
-            <div className='flex items-center gap-1.5 sm:gap-2'>
-                <button 
-                    className='lg:hidden text-white/90 hover:text-white p-2 rounded-lg hover:bg-white/10'
-                    onClick={() => setShowSearch(!showSearch)}
+            {/* Right: Actions & User Dropdown */}
+            <div className="flex items-center gap-2.5">
+                
+                {/* Action: Add Item */}
+                <button
+                    onClick={() => navigate('/add-item')}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold transition shadow-sm cursor-pointer"
                 >
-                    <FaSearch size={15} />
+                    <FaPlus size={10} />
+                    <span>Add Dish</span>
                 </button>
 
-                <AnimatePresence>
-                    {showSearch && (
-                        <motion.div 
-                            initial={{ opacity: 0, y: -8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -8 }}
-                            className='absolute top-[64px] left-0 right-0 px-4 py-3 bg-white border-b border-gray-200 shadow-sm z-50'
-                        >
-                            <form onSubmit={handleSearch} className='flex items-center gap-2 max-w-lg mx-auto'>
-                                <input
-                                    type="text"
-                                    placeholder='Search restaurants or items...'
-                                    className='flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#e85d04] text-sm'
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    autoFocus
-                                />
-                                <button type="submit" className='px-3 py-2.5 rounded-lg bg-[#e85d04] text-white'>
-                                    <FaSearch size={14} />
-                                </button>
-                                <button className='p-2.5 rounded-lg text-gray-400' onClick={() => setShowSearch(false)}>
-                                    <FaTimes size={14} />
-                                </button>
-                            </form>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                <button 
-                    className='lg:hidden text-white/90 p-2 rounded-lg hover:bg-white/10'
-                    onClick={() => navigate('/restaurants')}
+                {/* Action: Orders (with live pending count badge) */}
+                <button
+                    onClick={() => navigate('/owner-orders')}
+                    className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#13121A] hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition cursor-pointer"
                 >
-                    <BiRestaurant size={17} />
-                </button>
-
-                {shopData?.isApproved && (
-                    <button 
-                        className='hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium hover:bg-white/30 transition-colors'
-                        onClick={() => navigate("/add-item")}
-                    >
-                        <FaPlus size={11} />
-                        <span className='hidden lg:inline'>Add Item</span>
-                    </button>
-                )}
-
-                <button 
-                    className='hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/90 text-xs font-medium hover:bg-white/15 transition-colors'
-                    onClick={() => navigate("/owner-orders")}
-                >
-                    <IoReceiptOutline size={15} />
-                    <span className='hidden lg:inline'>Orders</span>
+                    <IoReceiptOutline size={15} className="text-[#FF6B00]" />
+                    <span className="hidden sm:inline">Orders</span>
                     {notifications > 0 && (
-                        <span className='w-4 h-4 bg-red-500 rounded-full text-[8px] text-white flex items-center justify-center ml-1'>
+                        <span className="w-5 h-5 rounded-full bg-rose-600 text-[10px] font-black text-white flex items-center justify-center animate-pulse ml-0.5">
                             {notifications}
                         </span>
                     )}
                 </button>
 
-                {/* Profile Dropdown */}
-                <div className='relative' ref={dropdownRef}>
-                    <div 
-                        className='w-9 h-9 rounded-full flex items-center justify-center bg-white text-[#e85d04] text-sm font-semibold cursor-pointer' 
+                {/* Profile Avatar & Dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                    <button
                         onClick={() => setShowDropdown(!showDropdown)}
+                        className="w-10 h-10 rounded-xl bg-[#13121A] border border-white/10 hover:border-[#FF6B00]/40 flex items-center justify-center text-white font-black text-sm transition cursor-pointer overflow-hidden"
                     >
                         {userData?.profilePhoto ? (
-                            <img src={userData.profilePhoto} alt="profile" className='w-full h-full rounded-full object-cover' />
+                            <img src={userData.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
                         ) : (
-                            userData?.fullName?.slice(0, 1) || 'O'
+                            userData?.fullName?.slice(0, 1).toUpperCase() || 'O'
                         )}
-                    </div>
+                    </button>
 
                     <AnimatePresence>
                         {showDropdown && (
-                            <motion.div 
-                                initial={{ opacity: 0, y: -8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -8 }}
-                                className='absolute top-[48px] right-0 w-[240px] bg-white rounded-xl p-3.5 border border-gray-100 shadow-xl z-50'
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                transition={{ duration: 0.15 }}
+                                className="absolute right-0 top-12 w-64 bg-[#13121A] border border-white/10 rounded-2xl p-4 shadow-2xl z-50 text-white space-y-3"
                             >
-                                <div className='flex items-center gap-3 pb-3 border-b border-gray-100'>
-                                    <div className='w-10 h-10 rounded-full bg-[#e85d04] flex items-center justify-center text-white font-semibold text-sm'>
-                                        {userData?.fullName?.slice(0, 1) || 'O'}
-                                    </div>
-                                    <div className='flex-1 min-w-0'>
-                                        <p className='text-sm font-semibold text-gray-800 truncate flex items-center gap-1'>
-                                            {userData?.fullName}
-                                            <MdVerified size={12} className="text-blue-500" />
-                                        </p>
-                                        <p className='text-[11px] text-gray-400 truncate'>{userData?.email}</p>
-                                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${roleBadge.color}`}>
-                                            {roleBadge.label}
-                                        </span>
-                                    </div>
+                                <div className="pb-3 border-b border-white/[0.08]">
+                                    <p className="text-sm font-black text-white truncate">{userData?.fullName || 'Restaurant Partner'}</p>
+                                    <p className="text-xs text-gray-400 truncate mt-0.5">{userData?.email}</p>
+                                    <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FF6B00]/15 border border-orange-500/30 text-[#FF8C00]">
+                                        Verified Restaurant Owner
+                                    </span>
                                 </div>
 
-                                <div className='py-1.5 space-y-0.5'>
-                                    <div 
-                                        className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
-                                        onClick={() => { navigate("/owner-dashboard"); setShowDropdown(false) }}
+                                <div className="space-y-1 text-xs">
+                                    <button
+                                        onClick={() => { navigate('/owner-dashboard'); setShowDropdown(false); }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-300 hover:text-white hover:bg-white/5 transition text-left cursor-pointer"
                                     >
-                                        <FaHome size={13} /> Dashboard
-                                    </div>
-                                    <div 
-                                        className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
-                                        onClick={() => { navigate("/profile"); setShowDropdown(false) }}
+                                        <FaHome size={13} className="text-[#FF6B00]" />
+                                        <span>Owner Dashboard</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { navigate('/owner-orders'); setShowDropdown(false); }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-300 hover:text-white hover:bg-white/5 transition text-left cursor-pointer"
                                     >
-                                        <FaUserCircle size={13} /> Profile Settings
-                                    </div>
-                                    {shopData && (
-                                        <div 
-                                            className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
-                                            onClick={() => { navigate("/create-edit-shop"); setShowDropdown(false) }}
-                                        >
-                                            <FaStore size={13} /> Manage Shop
-                                        </div>
-                                    )}
-                                    <div 
-                                        className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
-                                        onClick={() => { navigate("/owner-orders"); setShowDropdown(false) }}
+                                        <FaReceipt size={13} className="text-amber-400" />
+                                        <span>Order Management</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { navigate('/create-edit-shop'); setShowDropdown(false); }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-300 hover:text-white hover:bg-white/5 transition text-left cursor-pointer"
                                     >
-                                        <IoReceiptOutline size={13} /> Order Management
-                                    </div>
-                                    <div 
-                                        className='flex items-center gap-2.5 text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-gray-50 text-sm'
-                                        onClick={() => { navigate("/add-item"); setShowDropdown(false) }}
+                                        <FaStore size={13} className="text-sky-400" />
+                                        <span>Restaurant Settings</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { navigate('/add-item'); setShowDropdown(false); }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-300 hover:text-white hover:bg-white/5 transition text-left cursor-pointer"
                                     >
-                                        <FaPlus size={13} /> Add Item
-                                    </div>
+                                        <FaPlus size={13} className="text-emerald-400" />
+                                        <span>Add Menu Item</span>
+                                    </button>
                                 </div>
 
-                                <div 
-                                    className='flex items-center gap-2.5 text-red-500 hover:text-red-600 cursor-pointer py-2 px-2.5 rounded-lg hover:bg-red-50 text-sm border-t border-gray-100 mt-1 pt-2'
-                                    onClick={handleLogout}
-                                >
-                                    <IoLogOut size={14} /> Logout
+                                <div className="pt-2 border-t border-white/[0.08]">
+                                    <button
+                                        onClick={handleLogout}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition text-left cursor-pointer"
+                                    >
+                                        <IoLogOut size={15} />
+                                        <span>Sign Out</span>
+                                    </button>
                                 </div>
                             </motion.div>
                         )}

@@ -139,6 +139,9 @@ function AdminLayout({ children }) {
         { path: '/admin/shops', icon: <FaStore />, label: 'Shops', color: 'from-[#ff6b35] to-[#f7931e]' },
         { path: '/admin/orders', icon: <FaShoppingCart />, label: 'Orders', color: 'from-[#ffd93d] to-[#ff6b35]' },
         { path: '/admin/delivery-boys', icon: <FaTruck />, label: 'Delivery Boys', color: 'from-[#a18cd1] to-[#fbc2eb]' },
+        { path: '/admin/refunds', icon: <FaShieldAlt />, label: 'Refunds', color: 'from-[#f12711] to-[#f5af19]' },
+        { path: '/admin/tickets', icon: <FaCog />, label: 'Support Tickets', color: 'from-[#8e2de2] to-[#4a00e0]' },
+        { path: '/admin/coupons', icon: <FaGem />, label: 'Coupons', color: 'from-[#ff0844] to-[#ffb199]' },
         { path: '/admin/revenue', icon: <FaChartLine />, label: 'Revenue', color: 'from-[#2ecc71] to-[#1abc9c]' },
     ]
 

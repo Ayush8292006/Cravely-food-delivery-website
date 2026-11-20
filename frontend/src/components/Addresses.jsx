@@ -8,7 +8,7 @@ import {
     FaPlus, FaTrash, FaCheck, FaHome, FaBriefcase, 
     FaMapMarkerAlt, FaBuilding, FaEdit, FaTimes,
     FaMotorcycle, FaShieldAlt, FaStar, FaRocket,
-    FaLocationDot, FaSearch, FaClock, FaHeart,
+    FaSearch, FaClock, FaHeart,
     FaCrown, FaGem, FaAward, FaTruck, FaExclamationTriangle,
     FaSpinner
 } from 'react-icons/fa'
@@ -531,7 +531,7 @@ function Addresses() {
                                 {isLocating ? (
                                     <FaSpinner className='animate-spin' size={18} />
                                 ) : (
-                                    <FaLocationDot size={18} />
+                                    <FaMapMarkerAlt size={18} />
                                 )}
                             </button>
                         </div>
@@ -561,7 +561,7 @@ function Addresses() {
                                             className='px-4 py-3 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0 transition flex items-start gap-3'
                                             onClick={() => selectAddress(suggestion)}
                                         >
-                                            <FaLocationDot className='text-[#ff6b35] mt-0.5' size={14} />
+                                            <FaMapMarkerAlt className='text-[#ff6b35] mt-0.5' size={14} />
                                             <div>
                                                 <p className='text-sm font-medium text-white'>{suggestion.address_line1}</p>
                                                 <p className='text-xs text-white/40'>{suggestion.address_line2}</p>

@@ -1,27 +1,25 @@
 import React, { useState, useEffect } from 'react'
-import { FaLeaf, FaDrumstickBite, FaCartShopping } from "react-icons/fa6";
-import { FaMinus, FaPlus, FaFire, FaClock, FaCheck, FaTag, FaTruck } from "react-icons/fa";
+import { FaMinus, FaPlus, FaStar } from "react-icons/fa";
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart, removeCartItem, updateQuantity } from '../redux/userSlice';
 import { toast } from "react-toastify";
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
-// ✅ Constants
 const MAX_QUANTITY = 99
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop'
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&h=350&fit=crop'
 
-function FoodCard({ data }) {
+function FoodCard({ data, item, dark = true }) {
+    const itemData = data || item
+    if (!itemData || !itemData._id) return null
+
     const [quantity, setQuantity] = useState(0)
-    const [isAdded, setIsAdded] = useState(false)
-    const [isRemoved, setIsRemoved] = useState(false)
     const [imageError, setImageError] = useState(false)
-    const [isHovered, setIsHovered] = useState(false)
     const dispatch = useDispatch()
     const { cartItems } = useSelector(state => state.user)
 
-    // ✅ Check if item is already in cart
+    // Sync quantity with Redux cart state
     useEffect(() => {
-        const existingItem = cartItems.find(i => i.id === data._id)
+        const existingItem = (cartItems || []).find(i => i.id === itemData._id)
         if (existingItem) {
             if (existingItem.quantity !== quantity) {
                 setQuantity(existingItem.quantity || 0)
@@ -31,25 +29,19 @@ function FoodCard({ data }) {
                 setQuantity(0)
             }
         }
-    }, [cartItems, data._id, quantity])
+    }, [cartItems, itemData._id, quantity])
 
-    // ✅ Check if item is out of stock
-    const isOutOfStock = data?.isOutOfStock === true || data?.stock === 0
+    const isOutOfStock = itemData?.isOutOfStock === true || itemData?.stock === 0
+    const isInCart = quantity > 0
 
-    // ✅ Handle Increase
-    const handleIncrease = () => {
+    const handleIncrease = (e) => {
+        if (e) e.stopPropagation()
         if (isOutOfStock) {
-            toast.warning('This item is out of stock!', {
-                position: "top-center",
-                autoClose: 2000,
-            })
+            toast.warning('This item is out of stock!')
             return
         }
         if (quantity >= MAX_QUANTITY) {
-            toast.warning(`Maximum ${MAX_QUANTITY} items allowed!`, {
-                position: "top-center",
-                autoClose: 2000,
-            })
+            toast.warning(`Maximum ${MAX_QUANTITY} items allowed!`)
             return
         }
         
@@ -57,263 +49,170 @@ function FoodCard({ data }) {
         setQuantity(newQty)
         
         dispatch(addToCart({
-            id: data._id,
-            name: data.name,
-            price: data.price,
-            image: data.image,
-            shop: data.shop,
+            id: itemData._id,
+            name: itemData.name,
+            price: itemData.price,
+            image: itemData.image,
+            shop: itemData.shop,
             quantity: 1,
-            foodType: data.foodType,
-            category: data.category
-        }));
+            foodType: itemData.foodType,
+            category: itemData.category
+        }))
         
-        setIsAdded(true)
-        setTimeout(() => setIsAdded(false), 600)
-        
-        toast.success(`${data.name} added to cart!`, {
-            position: "top-center",
-            autoClose: 1500,
-        })
+        toast.success(`${itemData.name} added to cart!`, { autoClose: 1200 })
     }
 
-    // ✅ Handle Decrease
-    const handleDecrease = () => {
+    const handleDecrease = (e) => {
+        if (e) e.stopPropagation()
         if (quantity > 0) {
             const newQty = quantity - 1
             setQuantity(newQty)
             
             if (newQty === 0) {
-                dispatch(removeCartItem(data._id))
-                setIsRemoved(true)
-                setTimeout(() => setIsRemoved(false), 600)
-                
-                toast.info(`${data.name} removed from cart!`, {
-                    position: "top-center",
-                    autoClose: 1500,
-                })
+                dispatch(removeCartItem(itemData._id))
+                toast.info(`${itemData.name} removed from cart!`, { autoClose: 1200 })
             } else {
                 dispatch(updateQuantity({ 
-                    id: data._id, 
+                    id: itemData._id, 
                     quantity: newQty 
                 }))
             }
         }
     }
 
-    // ✅ Get image source
     const getImageSrc = () => {
         if (imageError) return FALLBACK_IMAGE
-        if (data?.image) return data.image
-        return FALLBACK_IMAGE
+        return itemData?.image || FALLBACK_IMAGE
     }
 
-    // ✅ Check if item is in cart
-    const isInCart = cartItems.some(i => i.id === data._id)
-
-    // ✅ Handle main button click
-    const handleMainButtonClick = () => {
-        if (isOutOfStock) {
-            toast.warning('This item is out of stock!')
-            return
-        }
-        
-        if (isInCart && quantity > 0) {
-            dispatch(removeCartItem(data._id))
-            setQuantity(0)
-            setIsRemoved(true)
-            setTimeout(() => setIsRemoved(false), 600)
-            toast.info(`${data.name} removed from cart!`, {
-                position: "top-center",
-                autoClose: 1500,
-            })
-        } else {
-            handleIncrease()
-        }
-    }
+    const isVeg = itemData?.foodType === "veg"
+    const originalPrice = Math.round((itemData?.price || 0) * 1.15)
+    const ratingValue = itemData?.rating?.average ? Number(itemData.rating.average).toFixed(1) : '5.0'
 
     return (
-        <motion.div 
-            initial={{ opacity: 0, y: 20 }}
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -4, transition: { duration: 0.3 } }}
-            onHoverStart={() => setIsHovered(true)}
-            onHoverEnd={() => setIsHovered(false)}
-            className={`relative w-full max-w-[320px] rounded-2xl bg-white border-2 border-gray-200 overflow-hidden transition-all duration-300 ${
-                isOutOfStock ? 'opacity-60' : ''
-            } ${isHovered ? 'shadow-lg shadow-orange-100/50 border-orange-300' : 'shadow-sm'}`}
-            role="article"
+            whileHover={{ y: -4 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className={`group relative w-full rounded-2xl overflow-hidden transition-all duration-300 bg-[#13121A] border border-white/[0.08] hover:border-[#FF6B00]/50 shadow-lg hover:shadow-black/60 flex flex-col justify-between ${isOutOfStock ? 'opacity-60' : ''}`}
         >
-            {/* ✅ Top Border */}
-            <div className='absolute top-0 left-0 right-0 h-1 z-20 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400' />
-
-            {/* ✅ Out of Stock Overlay */}
-            {isOutOfStock && (
-                <div className='absolute inset-0 bg-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center z-30'>
-                    <div className='text-center'>
-                        <span className='text-gray-800 font-bold text-sm bg-red-100 px-5 py-2.5 rounded-full border-2 border-red-200'>
-                            Out of Stock
-                        </span>
-                    </div>
-                </div>
-            )}
-
-            {/* ✅ In Cart Badge */}
-            {isInCart && quantity > 0 && !isOutOfStock && (
-                <div className='absolute top-4 right-[-30px] z-20 bg-green-500 text-white text-[8px] font-bold uppercase px-8 py-1 shadow-lg shadow-green-500/30 rotate-45'>
-                    In Cart 🛒
-                </div>
-            )}
-
-            {/* ✅ Image Section */}
-            <div className='relative w-full h-[200px] overflow-hidden bg-gray-100'>
+            {/* 1. MOUTH-WATERING FOOD PHOTOGRAPHY (Aspect ~16:10, Height: 140px, Solid Dark Backdrop) */}
+            <div className="relative w-full h-[140px] overflow-hidden bg-[#0A090D]">
                 <img 
                     src={getImageSrc()} 
-                    alt={data?.name || 'Food item'} 
-                    className='w-full h-full object-cover'
+                    alt={itemData?.name || 'Food item'} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                     loading="lazy"
                     onError={() => setImageError(true)}
                 />
-                
-                {/* ✅ Gradient Overlay */}
-                <div className='absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent' />
-                
-                {/* ✅ Food Type Badge */}
-                <div className={`absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white shadow-md border-2 ${
-                    data?.foodType === "veg" ? 'border-green-200' : 'border-red-200'
-                }`}>
-                    {data?.foodType === "veg" ? (
-                        <>
-                            <FaLeaf className='text-green-500 text-[10px]' />
-                            <span className='text-[7px] text-green-600 font-bold uppercase'>Veg</span>
-                        </>
-                    ) : (
-                        <>
-                            <FaDrumstickBite className='text-red-500 text-[10px]' />
-                            <span className='text-[7px] text-red-600 font-bold uppercase'>Non-Veg</span>
-                        </>
-                    )}
-                </div>
 
-                {/* ✅ Delivery Time */}
-                <div className='absolute bottom-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-white shadow-md border border-gray-200'>
-                    <FaClock className='text-orange-500 text-[9px]' />
-                    <span className='text-gray-700 text-[9px] font-medium'>30-40 min</span>
-                </div>
-
-                {/* ✅ Popular Badge */}
-                {(data?.rating?.count || 0) > 50 && (
-                    <div className='absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 border-2 border-orange-200 shadow-sm'>
-                        <FaFire className='text-orange-500 text-[9px] animate-pulse' />
-                        <span className='text-orange-600 text-[6px] font-bold uppercase'>Popular</span>
-                    </div>
-                )}
-            </div>
-
-            {/* ✅ Content Section */}
-            <div className="p-4 space-y-2">
-                {/* Name & Category */}
-                <div className='flex items-start justify-between gap-2'>
-                    <h3 className="text-gray-800 font-bold text-base truncate flex-1">
-                        {data?.name || 'Unknown Item'}
-                    </h3>
-                    {data?.category && (
-                        <span className='text-[8px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200 flex-shrink-0 font-medium'>
-                            {data.category}
-                        </span>
-                    )}
-                </div>
-
-                {/* Shop Name */}
-                <div className='flex items-center justify-between'>
-                    <p className='text-gray-400 text-[10px] flex items-center gap-1.5'>
-                        <span className='w-1 h-1 rounded-full bg-orange-400' />
-                        {data?.shop?.name || 'Cravely Kitchen'}
-                    </p>
-                    {!isOutOfStock && (
-                        <div className='flex items-center gap-1 text-[9px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200 font-medium'>
-                            <FaTruck className='text-[7px]' />
-                            <span>Free Delivery</span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Price */}
-                <div className='flex items-center gap-2 pt-2 border-t border-gray-200'>
-                    <span className='text-xl font-extrabold text-gray-800'>
-                        ₹{data?.price || 0}
-                    </span>
-                    <span className='text-[10px] text-gray-400 line-through'>
-                        ₹{Math.round((data?.price || 0) * 1.15)}
-                    </span>
-                    <span className='text-[9px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200 font-medium'>
-                        15% OFF
-                    </span>
-                </div>
-            </div>
-
-            {/* ✅ Footer - Quantity Controls */}
-            <div className='px-4 pb-4 pt-1'>
-                <div className='flex items-center gap-2'>
-                    {/* Quantity Controls */}
-                   
-
-                    {/* Main Button */}
-                    <button
-                        className={`flex-1 py-2.5 rounded-xl text-white font-semibold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                            isOutOfStock
-                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                : isInCart && quantity > 0
-                                    ? 'bg-green-500 hover:bg-green-600 shadow-md shadow-green-200'
-                                    : 'bg-orange-500 hover:bg-orange-600 shadow-md shadow-orange-200'
+                {/* Top-Left: Standard Veg / Non-Veg Indicator (FSSAI Standard) */}
+                <div className="absolute top-2.5 left-2.5">
+                    <span 
+                        className={`w-4 h-4 rounded-sm border flex items-center justify-center bg-[#0A090D]/90 shadow-sm ${
+                            isVeg ? 'border-emerald-500' : 'border-rose-500'
                         }`}
-                        onClick={handleMainButtonClick}
-                        disabled={isOutOfStock}
+                        title={isVeg ? 'Vegetarian' : 'Non-Vegetarian'}
                     >
-                        {isInCart && quantity > 0 ? (
-                            <>
-                                <FaCheck size={13} />
-                                <span>In Cart</span>
-                            </>
-                        ) : (
-                            <>
-                                <FaCartShopping size={13} />
-                                <span>Add to Cart</span>
-                            </>
-                        )}
-                    </button>
+                        <span className={`w-2 h-2 rounded-full ${isVeg ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                    </span>
                 </div>
+
+                {/* Top-Right: Clean Rating Badge */}
+                <div className="absolute top-2.5 right-2.5 flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#0A090D]/90 border border-white/10 text-white text-[11px] font-bold shadow-sm">
+                    <FaStar size={10} className="text-amber-400" />
+                    <span>{Number(ratingValue).toFixed(1)}</span>
+                </div>
+
+                {/* Bottom-Left: Category Tag */}
+                {itemData?.category && (
+                    <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-[#0A090D]/90 text-[10px] font-semibold text-white/90 border border-white/10">
+                        {itemData.category}
+                    </span>
+                )}
+
+                {/* Out of Stock Notice */}
+                {isOutOfStock && (
+                    <div className="absolute inset-0 bg-[#0A090D]/85 flex items-center justify-center z-10">
+                        <span className="px-3.5 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-bold">
+                            Out of Stock
+                        </span>
+                    </div>
+                )}
             </div>
 
-            {/* ✅ Quantity Badge */}
-            {quantity > 0 && !isOutOfStock && (
-                <div className='absolute -top-0.5 -right-0.5 z-10 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-md border-2 border-white'>
-                    <span className='text-[9px] font-bold text-white'>{quantity}</span>
+            {/* 2. REFINED INFORMATION & ACTION AREA */}
+            <div className="p-3.5 space-y-1.5 flex-1 flex flex-col justify-between">
+                <div>
+                    {/* Dish Name */}
+                    <h4 
+                        className="text-[15px] font-black text-white group-hover:text-[#FF6B00] transition-colors truncate leading-tight"
+                        title={itemData?.name}
+                    >
+                        {itemData?.name || 'Delicious Dish'}
+                    </h4>
+
+                    {/* Restaurant Source */}
+                    <p className="text-xs text-gray-400 truncate mt-1">
+                        {itemData?.shop?.name || 'Cravely Kitchen'}
+                    </p>
                 </div>
-            )}
 
-            {/* ✅ Add Animation Overlay */}
-            <AnimatePresence>
-                {isAdded && (
-                    <div className='absolute inset-0 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center z-40'>
-                        <div className='text-center'>
-                            <span className='text-5xl block mb-1'>✅</span>
-                            <p className='text-green-600 font-bold text-sm'>Added!</p>
-                        </div>
+                {/* Price & Add to Cart Row */}
+                <div className="pt-2.5 mt-2 flex items-center justify-between border-t border-white/[0.08]">
+                    {/* Price and discount */}
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="text-base font-black text-white">
+                            ₹{itemData?.price || 0}
+                        </span>
+                        {originalPrice > (itemData?.price || 0) && (
+                            <span className="text-xs text-gray-500 line-through">
+                                ₹{originalPrice}
+                            </span>
+                        )}
                     </div>
-                )}
-            </AnimatePresence>
 
-            {/* ✅ Remove Animation Overlay */}
-            <AnimatePresence>
-                {isRemoved && (
-                    <div className='absolute inset-0 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center z-40'>
-                        <div className='text-center'>
-                            <span className='text-5xl block mb-1'>🗑️</span>
-                            <p className='text-red-500 font-bold text-sm'>Removed!</p>
-                        </div>
+                    {/* Compact Interactive Add or Quantity Control */}
+                    <div>
+                        {isInCart && !isOutOfStock ? (
+                            <div className="flex items-center bg-[#FF6B00] text-white rounded-full px-2 py-0.5 shadow-md shadow-orange-500/30 gap-2">
+                                <button
+                                    onClick={handleDecrease}
+                                    className="w-5 h-5 rounded-full hover:bg-black/20 flex items-center justify-center transition active:scale-90"
+                                    title="Decrease quantity"
+                                >
+                                    <FaMinus size={8} />
+                                </button>
+                                <span className="text-xs font-black min-w-[14px] text-center">
+                                    {quantity}
+                                </span>
+                                <button
+                                    onClick={handleIncrease}
+                                    className="w-5 h-5 rounded-full hover:bg-black/20 flex items-center justify-center transition active:scale-90"
+                                    title="Increase quantity"
+                                >
+                                    <FaPlus size={8} />
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleIncrease}
+                                disabled={isOutOfStock}
+                                className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 shadow-sm ${
+                                    isOutOfStock 
+                                        ? 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5' 
+                                        : 'bg-[#FF6B00] hover:bg-orange-600 text-white hover:scale-105 active:scale-95 cursor-pointer'
+                                }`}
+                                title="Add to cart"
+                            >
+                                <span>Add</span>
+                                <FaPlus size={9} />
+                            </button>
+                        )}
                     </div>
-                )}
-            </AnimatePresence>
+                </div>
+            </div>
         </motion.div>
     )
 }

@@ -14,6 +14,8 @@ import {
     verifyDeliveryOtp,
     verifyRazorpay,
     cancelOrder,
+    requestRefund,
+    getOrderInvoice,
     getCancellationReasons,
     getMyOrdersWithFilters,
     rejectOrder,
@@ -49,6 +51,8 @@ orderRouter.post("/update-status/:orderId/:shopId", isAuth, updateOrderStatus)
 orderRouter.get("/accept-order/:assignmentId", isAuth, acceptOrder)
 orderRouter.get("/get-today-deliveries", isAuth, getTodayDeliveries)
 orderRouter.post("/cancel/:orderId", isAuth, cancelOrder)
+orderRouter.post("/refund-request/:orderId", isAuth, requestRefund)
+orderRouter.get("/invoice/:orderId", isAuth, getOrderInvoice)
 orderRouter.get("/cancellation-reasons", isAuth, getCancellationReasons)
 orderRouter.get("/my-orders-filtered", isAuth, getMyOrdersWithFilters)
 

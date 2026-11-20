@@ -15,6 +15,8 @@ import {
 } from 'react-icons/fa'
 import { MdDeliveryDining, MdRestaurant, MdVerified } from 'react-icons/md'
 import { motion } from 'framer-motion'
+import Addresses from '../components/Addresses'
+import { FaMapMarkerAlt, FaCreditCard, FaTicketAlt, FaReceipt } from 'react-icons/fa'
 
 function Profile() {
     const navigate = useNavigate()
@@ -32,6 +34,24 @@ function Profile() {
     const [confirmPassword, setConfirmPassword] = useState('')
     const [isChangingPassword, setIsChangingPassword] = useState(false)
     const [isLoaded, setIsLoaded] = useState(false)
+    const [activeTab, setActiveTab] = useState('profile')
+    const [orderHistory, setOrderHistory] = useState([])
+    const [ordersLoading, setOrdersLoading] = useState(false)
+
+    useEffect(() => {
+        fetchOrderHistory()
+    }, [])
+
+    const fetchOrderHistory = async () => {
+        setOrdersLoading(true)
+        try {
+            const res = await axios.get(`${serverUrl}/api/order/my-orders`, { withCredentials: true })
+            setOrderHistory(res.data || [])
+        } catch (e) {}
+        finally {
+            setOrdersLoading(false)
+        }
+    }
 
     useEffect(() => {
         setTimeout(() => setIsLoaded(true), 300)
@@ -266,20 +286,134 @@ function Profile() {
                         <FaArrowLeft size={14} className='text-gray-600' />
                     </motion.button>
                     <div>
-                        <h1 className='text-xl font-semibold text-gray-900 tracking-tight'>
-                            My Profile
+                        <h1 className='text-2xl font-bold text-gray-900 tracking-tight'>
+                            Account Dashboard
                         </h1>
-                        <p className='text-gray-400 text-xs mt-0.5'>Manage your account settings</p>
+                        <p className='text-gray-500 text-xs mt-0.5'>Manage your profile, addresses, orders & payment refunds</p>
                     </div>
                 </div>
 
-                {/* Main Profile Card */}
-                <motion.div 
-                    initial={{ opacity: 0, y: 24 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45 }}
-                    className='rounded-2xl border border-gray-200 bg-white p-6 sm:p-7 shadow-sm'
-                >
+                {/* Tabs */}
+                <div className='flex gap-2 border-b border-gray-200 pb-3 mb-6 overflow-x-auto'>
+                    {[
+                        { id: 'profile', label: 'Profile & Security', icon: <FaUser size={12} /> },
+                        { id: 'addresses', label: 'Saved Addresses', icon: <FaMapMarkerAlt size={12} /> },
+                        { id: 'payments', label: 'Payment & Refund History', icon: <FaCreditCard size={12} /> },
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition whitespace-nowrap ${
+                                activeTab === tab.id
+                                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            {tab.icon}
+                            <span>{tab.label}</span>
+                        </button>
+                    ))}
+                </div>
+
+                {activeTab === 'addresses' && (
+                    <div className='bg-white rounded-3xl border border-gray-200 p-6 shadow-sm'>
+                        <Addresses />
+                    </div>
+                )}
+
+                {activeTab === 'payments' && (
+                    <div className='bg-white rounded-3xl border border-gray-200 p-6 shadow-sm'>
+                        <h3 className='text-lg font-bold text-gray-900 mb-2 flex items-center gap-2'>
+                            <FaCreditCard className='text-orange-500' /> Payment & Refund History
+                        </h3>
+                        <p className='text-xs text-gray-500 mb-6'>
+                            Track all transactions, Razorpay test payment IDs, and automatic cancellation refund statuses.
+                        </p>
+
+                        {ordersLoading ? (
+                            <div className='text-center py-12 text-gray-400 text-sm'>Loading transaction history...</div>
+                        ) : orderHistory.length === 0 ? (
+                            <div className='text-center py-12 text-gray-400 text-sm'>No transactions or orders yet.</div>
+                        ) : (
+                            <div className='overflow-x-auto'>
+                                <table className='w-full text-left text-xs text-gray-700'>
+                                    <thead className='bg-gray-50 text-[11px] uppercase font-bold text-gray-500'>
+                                        <tr>
+                                            <th className='p-3 rounded-l-xl'>Order</th>
+                                            <th className='p-3'>Date</th>
+                                            <th className='p-3'>Method</th>
+                                            <th className='p-3'>Amount</th>
+                                            <th className='p-3'>Payment Status</th>
+                                            <th className='p-3'>Refund Status</th>
+                                            <th className='p-3 rounded-r-xl'>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className='divide-y divide-gray-100'>
+                                        {orderHistory.map((ord) => {
+                                            const isCancelled = ord.isCancelled || ord.shopOrders?.[0]?.status === 'cancelled'
+                                            const rStatus = ord.refundStatus || (isCancelled && ord.paymentMethod === 'online' ? 'completed' : 'N/A')
+                                            return (
+                                                <tr key={ord._id} className='hover:bg-gray-50/80 transition'>
+                                                    <td className='p-3 font-mono font-bold text-gray-900'>
+                                                        #{ord._id.slice(-6).toUpperCase()}
+                                                    </td>
+                                                    <td className='p-3 text-gray-500'>
+                                                        {new Date(ord.createdAt).toLocaleDateString()}
+                                                    </td>
+                                                    <td className='p-3'>
+                                                        <span className='uppercase font-semibold'>{ord.paymentMethod}</span>
+                                                        {ord.razorpayPaymentId && (
+                                                            <div className='text-[10px] text-gray-400 font-mono'>{ord.razorpayPaymentId}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className='p-3 font-extrabold text-gray-900'>
+                                                        ₹{ord.totalAmount}
+                                                    </td>
+                                                    <td className='p-3'>
+                                                        <span className={`px-2 py-0.5 rounded-full font-bold ${
+                                                            ord.payment ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                                        }`}>
+                                                            {ord.payment ? 'Paid ✓' : 'Pending / COD'}
+                                                        </span>
+                                                    </td>
+                                                    <td className='p-3'>
+                                                        <span className={`px-2 py-0.5 rounded-full font-bold capitalize ${
+                                                            rStatus === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                                            rStatus === 'processing' ? 'bg-blue-100 text-blue-700' :
+                                                            rStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
+                                                        }`}>
+                                                            {rStatus}
+                                                        </span>
+                                                        {ord.refundAmount > 0 && (
+                                                            <div className='text-[10px] text-emerald-600 font-bold mt-0.5'>₹{ord.refundAmount}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className='p-3'>
+                                                        <button
+                                                            onClick={() => navigate(`/track-order/${ord._id}`)}
+                                                            className='text-orange-600 hover:text-orange-700 font-bold hover:underline'
+                                                        >
+                                                            View
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'profile' && (
+                    <>
+                    <motion.div 
+                        initial={{ opacity: 0, y: 24 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.45 }}
+                        className='rounded-2xl border border-gray-200 bg-white p-6 sm:p-7 shadow-sm'
+                    >
                     <div className='flex flex-col items-center'>
                         
                         {/* Avatar */}
@@ -573,6 +707,8 @@ function Profile() {
                             </div>
                         </div>
                     </motion.div>
+                )}
+                </>
                 )}
             </div>
         </div>

@@ -1,27 +1,24 @@
 import React, { useState, useEffect } from 'react'
-import { IoArrowBack } from "react-icons/io5";
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { 
-    FaUtensils, FaStore, FaImage, FaMapMarkerAlt, FaCity, FaMapPin, 
-    FaSave, FaEdit, FaPlus, FaStoreAlt, FaBuilding, FaGlobe,
-    FaCamera, FaUpload, FaCheck, FaTimes, FaArrowRight,
-    FaClock, FaShieldAlt, FaRocket, FaGem, FaAward,
-    FaInfoCircle, FaCheckCircle, FaExclamationTriangle,
-    FaStar, FaHeart, FaFire, FaCrown, FaMagic, FaMotorcycle
-} from "react-icons/fa";
-import { MdRestaurant, MdLocationOn, MdVerified } from "react-icons/md";
-import { toast } from "react-toastify";
-import axios from 'axios';
-import { serverUrl } from '../../config';
-import { setMyShopData } from '../redux/ownerSlice';
-import { ClipLoader } from 'react-spinners';
-import { motion, AnimatePresence } from 'framer-motion';
+    FaStore, FaImage, FaMapMarkerAlt, FaCity, FaSave, 
+    FaCamera, FaUpload, FaCheck, FaArrowLeft, FaStar,
+    FaInfoCircle, FaClock
+} from "react-icons/fa"
+import { toast } from "react-toastify"
+import axios from 'axios'
+import { serverUrl } from '../../config'
+import { setMyShopData } from '../redux/ownerSlice'
+import { ClipLoader } from 'react-spinners'
+import { motion } from 'framer-motion'
+import OwnerNav from '../components/OwnerNav'
 
 function CreateEditShop() {
     const { myShopData } = useSelector(state => state.owner)
     const { currentCity, currentState, currentAddress } = useSelector(state => state.user)
     const navigate = useNavigate()
+    const dispatch = useDispatch()
     
     const [name, setName] = useState(myShopData?.name || "")
     const [address, setAddress] = useState(myShopData?.address || currentAddress || "")
@@ -31,14 +28,6 @@ function CreateEditShop() {
     const [backendImage, setBackendImage] = useState(null)
     const [loading, setLoading] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
-    const [showSuccess, setShowSuccess] = useState(false)
-    const [isLoaded, setIsLoaded] = useState(false)
-    const [errors, setErrors] = useState({})
-    const dispatch = useDispatch()
-
-    useEffect(() => {
-        setTimeout(() => setIsLoaded(true), 300)
-    }, [])
 
     useEffect(() => {
         return () => {
@@ -49,500 +38,278 @@ function CreateEditShop() {
     }, [frontendImage])
 
     const isEditing = !!myShopData
-    const isPending = myShopData && !myShopData.isApproved
 
-    const validateField = (field, value) => {
-        const newErrors = { ...errors }
-        if (!value || !value.trim()) {
-            newErrors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
-        } else {
-            delete newErrors[field]
-        }
-        setErrors(newErrors)
-        return !newErrors[field]
-    }
-
-    const handleImage = (e) => {
-        const file = e.target.files[0]
+    const handleImageChange = (file) => {
         if (!file) return
-
-        const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif']
+        const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp']
         if (!validTypes.includes(file.type)) {
-            toast.error('Please upload a valid image file (JPEG, PNG, WEBP, GIF)')
+            toast.error('Please upload a valid image (JPEG, PNG, WEBP)')
             return
         }
-
         if (file.size > 5 * 1024 * 1024) {
-            toast.error('Image size should be less than 5MB')
+            toast.error('Image size must be less than 5MB')
             return
         }
-
         if (frontendImage && frontendImage.startsWith('blob:')) {
             URL.revokeObjectURL(frontendImage)
         }
-
         setBackendImage(file)
         setFrontendImage(URL.createObjectURL(file))
     }
 
-    const handleDragOver = (e) => {
-        e.preventDefault()
-        setIsDragging(true)
-    }
-
-    const handleDragLeave = (e) => {
-        e.preventDefault()
-        setIsDragging(false)
-    }
-
-    const handleDrop = (e) => {
-        e.preventDefault()
-        setIsDragging(false)
-        const file = e.dataTransfer.files[0]
-        if (file && file.type.startsWith('image/')) {
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error('Image size should be less than 5MB')
-                return
-            }
-            if (frontendImage && frontendImage.startsWith('blob:')) {
-                URL.revokeObjectURL(frontendImage)
-            }
-            setBackendImage(file)
-            setFrontendImage(URL.createObjectURL(file))
-        }
-    }
-
     const handleSubmit = async (e) => {
         e.preventDefault()
-        setLoading(true)
-        
-        const isNameValid = validateField('name', name)
-        const isAddressValid = validateField('address', address)
-        const isCityValid = validateField('city', city)
-        const isStateValid = validateField('state', state)
-        
-        if (!isNameValid || !isAddressValid || !isCityValid || !isStateValid) {
-            toast.error('Please fill all required fields')
-            setLoading(false)
+        if (!name.trim() || !address.trim() || !city.trim() || !state.trim()) {
+            toast.warning('Please fill in all required fields')
+            return
+        }
+        if (!frontendImage && !backendImage) {
+            toast.warning('Please upload a restaurant cover image')
             return
         }
 
+        setLoading(true)
         try {
             const formData = new FormData()
-            formData.append("name", name.trim())
-            formData.append("city", city.trim())
-            formData.append("state", state.trim())
-            formData.append("address", address.trim())
+            formData.append('name', name)
+            formData.append('address', address)
+            formData.append('city', city)
+            formData.append('state', state)
             if (backendImage) {
-                formData.append("image", backendImage)
+                formData.append('image', backendImage)
             }
-            
-            const result = await axios.post(`${serverUrl}/api/shop/create-edit`, formData, { 
-                withCredentials: true,
-                headers: { 'Content-Type': 'multipart/form-data' }
-            })
-            
-            dispatch(setMyShopData(result.data))
-            setLoading(false)
-            setShowSuccess(true)
-            
-            if (isEditing) {
-                toast.success("Shop updated successfully! 🎉")
-            } else {
-                toast.success("Shop created successfully! 🎉")
-                toast.info("⏳ Your shop is pending admin approval.")
-            }
-            
-            setTimeout(() => {
-                setShowSuccess(false)
-                navigate("/home")
-            }, 2000)
-            
+
+            const response = await axios.post(
+                `${serverUrl}/api/shop/create-edit`,
+                formData,
+                {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    withCredentials: true
+                }
+            )
+
+            dispatch(setMyShopData(response.data.shop))
+            toast.success(isEditing ? 'Restaurant updated successfully!' : 'Restaurant created successfully! 🎉')
+            navigate('/owner-dashboard')
         } catch (error) {
-            console.log(error)
+            console.error('Error saving restaurant:', error)
+            toast.error(error.response?.data?.message || 'Failed to save restaurant profile')
+        } finally {
             setLoading(false)
-            toast.error(error.response?.data?.message || "Something went wrong ❌")
         }
     }
 
-    const fadeUp = `transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`
-
     return (
-        <div className='min-h-screen bg-[#f8f4f0] py-6 px-4'>
-            
-            {/* Back Button */}
-            <div className='max-w-5xl mx-auto mb-4'>
-                <motion.button 
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.95 }}
-                    className='bg-white border-2 border-gray-200 px-4 py-2.5 rounded-full text-gray-600 hover:text-gray-800 hover:border-orange-300 transition-all duration-300 flex items-center gap-2 text-sm shadow-sm hover:shadow-md'
-                    onClick={() => navigate("/home")}
-                >
-                    <IoArrowBack size={16} />
-                    <span>Back to Dashboard</span>
-                </motion.button>
-            </div>
+        <div 
+            className="min-h-screen bg-[#0A090D] text-white pt-[90px] pb-24 px-4 sm:px-6 lg:px-8 selection:bg-[#FF6B00] selection:text-white"
+            style={{ fontFamily: "'Poppins', 'Segoe UI', system-ui, sans-serif" }}
+        >
+            <OwnerNav />
 
-            {/* Main Container */}
-            <div className='relative z-10 max-w-5xl mx-auto'>
+            <div className="max-w-5xl mx-auto space-y-6">
                 
-                {/* Header */}
-                <motion.div 
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 ${fadeUp}`}
-                >
-                    <div className='flex items-center gap-4'>
-                        <div className='w-14 h-14 rounded-2xl bg-orange-500 flex items-center justify-center shadow-md shadow-orange-200'>
-                            {isEditing ? <FaEdit className='text-white text-2xl' /> : <FaStore className='text-white text-2xl' />}
-                        </div>
+                {/* Header Strip */}
+                <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => navigate('/owner-dashboard')}
+                            className="w-10 h-10 rounded-xl bg-[#13121A] hover:bg-[#FF6B00] border border-white/10 hover:border-transparent text-white flex items-center justify-center transition cursor-pointer"
+                        >
+                            <FaArrowLeft size={13} />
+                        </button>
                         <div>
-                            <h1 className='text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight'>
-                                {isEditing ? 'Edit Shop' : 'Create Shop'}
+                            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                                {isEditing ? 'Edit Restaurant Profile' : 'Register New Restaurant'}
                             </h1>
-                            <p className='text-gray-500 text-sm flex items-center gap-2 font-medium'>
-                                <span className='w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse' />
-                                {isEditing ? 'Update your restaurant details' : 'Start your food delivery journey'}
+                            <p className="text-xs text-gray-400 mt-0.5">
+                                Set up your restaurant identity, delivery coverage & cover photography
                             </p>
                         </div>
                     </div>
-                    
-                    {isPending && (
-                        <div className='flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border-2 border-amber-200'>
-                            <FaClock className='text-amber-500' />
-                            <span className='text-amber-700 text-xs font-bold'>Pending Approval</span>
-                            <span className='w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse' />
-                        </div>
-                    )}
-                </motion.div>
+                </div>
 
-                {/* Main Content - Square Layout */}
-                <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+                {/* Main 2-Column Grid: Form Left, Live Preview Right */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     
-                    {/* Form - Takes 2/3 width */}
-                    <div className='lg:col-span-2'>
-                        <motion.div 
-                            initial={{ opacity: 0, x: -30 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
-                            className={`bg-white border-2 border-gray-200 rounded-3xl p-6 sm:p-8 shadow-lg ${fadeUp}`}
-                        >
-                            <form className='space-y-5' onSubmit={handleSubmit}>
+                    {/* Left Form: 7 cols */}
+                    <div className="lg:col-span-7 bg-[#13121A] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-5 shadow-xl">
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            
+                            {/* Shop Name */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                    <FaStore size={12} className="text-[#FF6B00]" />
+                                    <span>Restaurant Name *</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. The Royal Biryani & Kebab Co."
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    required
+                                    className="w-full bg-[#0A090D] border border-white/10 focus:border-[#FF6B00] rounded-xl px-4 py-3 text-xs sm:text-sm text-white placeholder:text-gray-500 focus:outline-none transition"
+                                />
+                            </div>
+
+                            {/* Street Address */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                    <FaMapMarkerAlt size={12} className="text-[#FF6B00]" />
+                                    <span>Detailed Street Address *</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Shop 12, Alpha 1 Commercial Belt"
+                                    value={address}
+                                    onChange={(e) => setAddress(e.target.value)}
+                                    required
+                                    className="w-full bg-[#0A090D] border border-white/10 focus:border-[#FF6B00] rounded-xl px-4 py-3 text-xs sm:text-sm text-white placeholder:text-gray-500 focus:outline-none transition"
+                                />
+                            </div>
+
+                            {/* City and State */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                        <FaCity size={12} className="text-[#FF6B00]" />
+                                        <span>City *</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Greater Noida"
+                                        value={city}
+                                        onChange={(e) => setCity(e.target.value)}
+                                        required
+                                        className="w-full bg-[#0A090D] border border-white/10 focus:border-[#FF6B00] rounded-xl px-4 py-3 text-xs sm:text-sm text-white placeholder:text-gray-500 focus:outline-none transition"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                                        <span>State / Province *</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Uttar Pradesh"
+                                        value={state}
+                                        onChange={(e) => setState(e.target.value)}
+                                        required
+                                        className="w-full bg-[#0A090D] border border-white/10 focus:border-[#FF6B00] rounded-xl px-4 py-3 text-xs sm:text-sm text-white placeholder:text-gray-500 focus:outline-none transition"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Image Upload Zone */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                    <FaCamera size={12} className="text-[#FF6B00]" />
+                                    <span>Restaurant Cover Photo *</span>
+                                </label>
                                 
-                                {/* Shop Name - Full Width */}
-                                <div>
-                                    <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
-                                        <FaStore className='text-orange-500' size={14} />
-                                        Shop Name <span className='text-red-500'>*</span>
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        placeholder='Enter your shop name...' 
-                                        className={`w-full bg-gray-50 border-2 rounded-xl px-4 py-3.5 text-gray-800 placeholder:text-gray-400 focus:outline-none transition-all duration-300 text-sm ${
-                                            errors.name 
-                                                ? 'border-red-400 hover:border-red-500' 
-                                                : 'border-gray-200 hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
-                                        }`}
+                                <div
+                                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                    onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        setIsDragging(false);
+                                        if (e.dataTransfer.files?.[0]) handleImageChange(e.dataTransfer.files[0]);
+                                    }}
+                                    className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition ${
+                                        isDragging 
+                                            ? 'border-[#FF6B00] bg-orange-500/10' 
+                                            : 'border-white/15 bg-[#0A090D] hover:border-white/30'
+                                    }`}
+                                >
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        id="coverImageInput"
+                                        className="hidden"
                                         onChange={(e) => {
-                                            setName(e.target.value)
-                                            if (errors.name) validateField('name', e.target.value)
+                                            if (e.target.files?.[0]) handleImageChange(e.target.files[0]);
                                         }}
-                                        value={name}
-                                        onBlur={() => validateField('name', name)}
-                                        required
                                     />
-                                    {errors.name && (
-                                        <p className='text-red-500 text-xs mt-1 font-medium'>{errors.name}</p>
-                                    )}
-                                </div>
-
-                                {/* Address - Full Width */}
-                                <div>
-                                    <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
-                                        <FaMapMarkerAlt className='text-orange-500' size={14} />
-                                        Address <span className='text-red-500'>*</span>
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        placeholder='Enter your shop address...' 
-                                        className={`w-full bg-gray-50 border-2 rounded-xl px-4 py-3.5 text-gray-800 placeholder:text-gray-400 focus:outline-none transition-all duration-300 text-sm ${
-                                            errors.address 
-                                                ? 'border-red-400 hover:border-red-500' 
-                                                : 'border-gray-200 hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
-                                        }`}
-                                        onChange={(e) => {
-                                            setAddress(e.target.value)
-                                            if (errors.address) validateField('address', e.target.value)
-                                        }}
-                                        value={address}
-                                        onBlur={() => validateField('address', address)}
-                                        required
-                                    />
-                                    {errors.address && (
-                                        <p className='text-red-500 text-xs mt-1 font-medium'>{errors.address}</p>
-                                    )}
-                                </div>
-
-                                {/* City & State - Side by Side */}
-                                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-                                    <div>
-                                        <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
-                                            <FaCity className='text-orange-500' size={14} />
-                                            City <span className='text-red-500'>*</span>
-                                        </label>
-                                        <input 
-                                            type="text" 
-                                            placeholder='Enter city...' 
-                                            className={`w-full bg-gray-50 border-2 rounded-xl px-4 py-3.5 text-gray-800 placeholder:text-gray-400 focus:outline-none transition-all duration-300 text-sm ${
-                                                errors.city 
-                                                    ? 'border-red-400 hover:border-red-500' 
-                                                    : 'border-gray-200 hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
-                                            }`}
-                                            onChange={(e) => {
-                                                setCity(e.target.value)
-                                                if (errors.city) validateField('city', e.target.value)
-                                            }}
-                                            value={city}
-                                            onBlur={() => validateField('city', city)}
-                                            required
-                                        />
-                                        {errors.city && (
-                                            <p className='text-red-500 text-xs mt-1 font-medium'>{errors.city}</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
-                                            <FaMapPin className='text-orange-500' size={14} />
-                                            State <span className='text-red-500'>*</span>
-                                        </label>
-                                        <input 
-                                            type="text" 
-                                            placeholder='Enter state...' 
-                                            className={`w-full bg-gray-50 border-2 rounded-xl px-4 py-3.5 text-gray-800 placeholder:text-gray-400 focus:outline-none transition-all duration-300 text-sm ${
-                                                errors.state 
-                                                    ? 'border-red-400 hover:border-red-500' 
-                                                    : 'border-gray-200 hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
-                                            }`}
-                                            onChange={(e) => {
-                                                setState(e.target.value)
-                                                if (errors.state) validateField('state', e.target.value)
-                                            }}
-                                            value={state}
-                                            onBlur={() => validateField('state', state)}
-                                            required
-                                        />
-                                        {errors.state && (
-                                            <p className='text-red-500 text-xs mt-1 font-medium'>{errors.state}</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Image Upload - Full Width */}
-                                <div>
-                                    <label className='block text-gray-600 text-sm font-semibold mb-1.5 flex items-center gap-2'>
-                                        <FaImage className='text-orange-500' size={14} />
-                                        Shop Image
-                                    </label>
-                                    <div 
-                                        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${
-                                            isDragging 
-                                                ? 'border-orange-400 bg-orange-50' 
-                                                : 'border-gray-300 hover:border-orange-300 bg-gray-50 hover:bg-gray-100'
-                                        }`}
-                                        onDragOver={handleDragOver}
-                                        onDragLeave={handleDragLeave}
-                                        onDrop={handleDrop}
-                                    >
-                                        <input 
-                                            type="file" 
-                                            accept='image/*' 
-                                            className='absolute inset-0 opacity-0 cursor-pointer z-10'
-                                            onChange={handleImage}
-                                        />
-                                        <div className='flex flex-col items-center gap-2'>
-                                            <div className='w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center'>
-                                                <FaCamera className='text-gray-400 text-2xl' />
-                                            </div>
-                                            <p className='text-gray-500 text-sm font-medium'>
-                                                {isDragging ? 'Drop your image here 📥' : 'Click or drag to upload'}
-                                            </p>
-                                            <p className='text-gray-400 text-xs'>PNG, JPG up to 5MB</p>
+                                    <label htmlFor="coverImageInput" className="cursor-pointer space-y-2 block">
+                                        <div className="w-12 h-12 mx-auto rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#FF6B00]">
+                                            <FaUpload size={18} />
                                         </div>
-                                    </div>
-                                    
-                                    {frontendImage && (
-                                        <motion.div 
-                                            initial={{ opacity: 0, scale: 0.9 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            className='mt-4 relative'
-                                        >
-                                            <img 
-                                                src={frontendImage} 
-                                                alt="Shop preview" 
-                                                className='w-full h-48 object-cover rounded-xl border-2 border-gray-200'
-                                            />
-                                            <button
-                                                type="button"
-                                                className='absolute top-3 right-3 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all duration-300 text-sm shadow-md'
-                                                onClick={() => {
-                                                    if (frontendImage && frontendImage.startsWith('blob:')) {
-                                                        URL.revokeObjectURL(frontendImage)
-                                                    }
-                                                    setFrontendImage(null)
-                                                    setBackendImage(null)
-                                                }}
-                                            >
-                                                <FaTimes size={14} />
-                                            </button>
-                                        </motion.div>
-                                    )}
+                                        <p className="text-xs font-bold text-white">Click or drag & drop cover image</p>
+                                        <p className="text-[11px] text-gray-500">PNG, JPG, WEBP up to 5MB</p>
+                                    </label>
                                 </div>
+                            </div>
 
-                                {/* Submit Button */}
-                                <motion.button 
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                            {/* Submit Button */}
+                            <div className="pt-3">
+                                <button
                                     type="submit"
-                                    className='w-full py-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-sm shadow-orange-200 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 text-sm'
                                     disabled={loading}
+                                    className="w-full py-3.5 rounded-2xl bg-[#FF6B00] hover:bg-orange-600 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider transition-all duration-200 shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
                                 >
                                     {loading ? (
-                                        <ClipLoader size={20} color='white' />
+                                        <ClipLoader size={16} color="#fff" />
                                     ) : (
                                         <>
-                                            <FaSave size={16} />
-                                            {isEditing ? 'Update Shop' : 'Create Shop'}
-                                            <FaArrowRight size={14} />
+                                            <FaSave size={13} />
+                                            <span>{isEditing ? 'Save Restaurant Profile' : 'Publish Restaurant to Cravely'}</span>
                                         </>
                                     )}
-                                </motion.button>
-                            </form>
-                        </motion.div>
+                                </button>
+                            </div>
+                        </form>
                     </div>
 
-                    {/* Sidebar - Takes 1/3 width */}
-                    <div className='space-y-4'>
-                        
-                        {/* Pending Status */}
-                        {isPending && (
-                            <motion.div 
-                                initial={{ opacity: 0, x: 30 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className='bg-amber-50 border-2 border-amber-200 p-4 rounded-2xl'
-                            >
-                                <div className='flex items-start gap-3'>
-                                    <div className='w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0'>
-                                        <FaClock className='text-amber-600 text-lg' />
+                    {/* Right Live Preview: 5 cols */}
+                    <div className="lg:col-span-5 space-y-4">
+                        <div className="bg-[#13121A] border border-white/10 rounded-3xl p-6 shadow-xl space-y-4">
+                            <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-wider">
+                                    Customer Card Live Preview
+                                </h3>
+                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                                    Live Preview
+                                </span>
+                            </div>
+
+                            {/* Simulated Card */}
+                            <div className="rounded-2xl overflow-hidden bg-[#0A090D] border border-white/10 shadow-lg">
+                                <div className="relative w-full h-[150px] bg-black/60 overflow-hidden">
+                                    <img 
+                                        src={frontendImage || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop'} 
+                                        alt="Preview" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute top-2.5 left-2.5 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                        Verified
                                     </div>
-                                    <div>
-                                        <h4 className='text-amber-800 font-bold text-sm'>Pending Approval</h4>
-                                        <p className='text-amber-600 text-xs mt-1 font-medium'>Your shop is under review by admin.</p>
-                                        <div className='mt-2 flex items-center gap-2'>
-                                            <span className='w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse' />
-                                            <span className='text-amber-600 text-[10px] font-bold'>Under Review</span>
-                                        </div>
+                                    <div className="absolute bottom-2.5 right-2.5 bg-emerald-600 text-white font-black text-xs px-2 py-0.5 rounded-md flex items-center gap-1">
+                                        <FaStar size={10} />
+                                        <span>4.8</span>
                                     </div>
                                 </div>
-                            </motion.div>
-                        )}
 
-                        {/* Quick Tips */}
-                        <motion.div 
-                            initial={{ opacity: 0, x: 30 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className='bg-white border-2 border-gray-200 p-5 rounded-2xl shadow-lg'
-                        >
-                            <h4 className='text-gray-800 font-semibold text-sm mb-3 flex items-center gap-2'>
-                                <FaInfoCircle className='text-orange-500' /> Pro Tips
-                            </h4>
-                            <div className='space-y-2.5'>
-                                {[
-                                    { icon: <FaStar className='text-amber-400' />, text: 'Use a clear, high-quality shop image' },
-                                    { icon: <FaCheckCircle className='text-green-500' />, text: 'Add complete address details' },
-                                    { icon: <FaFire className='text-orange-500' />, text: 'Keep shop name unique & catchy' },
-                                    { icon: <FaCrown className='text-amber-500' />, text: 'Add multiple items to attract customers' }
-                                ].map((tip, idx) => (
-                                    <div 
-                                        key={idx}
-                                        className='flex items-center gap-2.5 text-gray-600 text-xs font-medium p-2 rounded-lg hover:bg-gray-50 transition-all duration-300'
-                                    >
-                                        <span className='text-sm'>{tip.icon}</span>
-                                        {tip.text}
+                                <div className="p-3.5 space-y-1.5">
+                                    <h4 className="text-[15px] font-black text-white truncate">
+                                        {name.trim() || 'Your Restaurant Name'}
+                                    </h4>
+                                    <p className="text-xs text-gray-400 truncate flex items-center gap-1">
+                                        <FaMapMarkerAlt size={10} className="text-[#FF6B00]" />
+                                        <span>{address.trim() || 'Restaurant Address'}, {city.trim() || 'City'}</span>
+                                    </p>
+                                    <div className="pt-2 flex items-center justify-between border-t border-white/[0.08] text-[11px] text-gray-300">
+                                        <span>30-40 mins • ₹200 for two</span>
+                                        <span className="text-[#FF8C00] font-bold">Explore →</span>
                                     </div>
-                                ))}
+                                </div>
                             </div>
-                        </motion.div>
 
-                        {/* Features */}
-                        <motion.div 
-                            initial={{ opacity: 0, x: 30 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className='bg-white border-2 border-gray-200 p-5 rounded-2xl shadow-lg'
-                        >
-                            <h4 className='text-gray-800 font-semibold text-sm mb-3 flex items-center gap-2'>
-                                <FaRocket className='text-orange-500' /> Platform Features
-                            </h4>
-                            <div className='grid grid-cols-3 gap-2'>
-                                {[
-                                    { icon: <FaShieldAlt className='text-orange-500 text-lg' />, label: 'Secure' },
-                                    { icon: <FaRocket className='text-orange-500 text-lg' />, label: 'Fast' },
-                                    { icon: <FaGem className='text-amber-500 text-lg' />, label: 'Premium' },
-                                    { icon: <FaAward className='text-purple-500 text-lg' />, label: 'Trusted' },
-                                    { icon: <FaHeart className='text-pink-500 text-lg' />, label: 'Loved' },
-                                    { icon: <FaMagic className='text-indigo-500 text-lg' />, label: 'Smart' }
-                                ].map((item, idx) => (
-                                    <div 
-                                        key={idx}
-                                        className='flex flex-col items-center gap-1 p-2 rounded-xl bg-gray-50 border border-gray-200'
-                                    >
-                                        <span className='text-xl'>{item.icon}</span>
-                                        <span className='text-gray-500 text-[8px] uppercase tracking-wider font-semibold'>{item.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
+                            <p className="text-[11px] text-gray-500 text-center leading-relaxed">
+                                This is how customers in {city || 'your area'} will discover and browse your kitchen.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            {/* Success Animation */}
-            <AnimatePresence>
-                {showSuccess && (
-                    <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className='fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4'
-                    >
-                        <motion.div
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: 1, rotate: 0 }}
-                            transition={{ type: "spring", stiffness: 300 }}
-                            className='text-center max-w-sm w-full bg-white rounded-3xl p-8 shadow-2xl border-2 border-green-200'
-                        >
-                            <div className='w-20 h-20 mx-auto rounded-full bg-green-100 border-2 border-green-300 flex items-center justify-center'>
-                                <FaCheck className='text-green-500 text-4xl' />
-                            </div>
-                            <h3 className='text-gray-800 font-bold text-xl mt-4'>
-                                {isEditing ? 'Updated Successfully!' : 'Created Successfully!'}
-                            </h3>
-                            <p className='text-gray-500 text-sm mt-2'>
-                                {isEditing ? 'Shop updated successfully' : 'Shop created successfully'}
-                            </p>
-                            {!isEditing && (
-                                <div className='mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200'>
-                                    <FaClock className='text-amber-500 text-sm' />
-                                    <span className='text-amber-700 text-xs font-semibold'>⏳ Pending admin approval</span>
-                                </div>
-                            )}
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     )
 }

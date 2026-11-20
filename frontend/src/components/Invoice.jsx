@@ -1,283 +1,310 @@
-import React from 'react'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
+import React, { useEffect, useState } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import axios from 'axios';
+import { serverUrl } from '../../config';
 import { 
-    FaTimes, FaDownload, FaPrint, FaShareAlt,
-    FaMotorcycle, FaStar, FaCheckCircle, FaClock,
-    FaUtensils, FaRupeeSign, FaMapMarkerAlt,
-    FaPhone, FaEnvelope, FaUser, FaTag,
-    FaUserCircle, FaHome, FaCity, FaBuilding
-} from 'react-icons/fa'
-import { MdVerified, MdRestaurant, MdLocationOn } from 'react-icons/md'
-import { motion } from 'framer-motion'
+    FaTimes, FaDownload, FaPrint, FaMotorcycle, 
+    FaCheckCircle, FaClock, FaUtensils, FaMapMarkerAlt, 
+    FaPhone, FaEnvelope, FaUser, FaTag, FaFileInvoiceDollar,
+    FaShieldAlt
+} from 'react-icons/fa';
+import { MdRestaurant, MdLocationOn } from 'react-icons/md';
+import { motion } from 'framer-motion';
 
 function Invoice({ order, onClose }) {
+    const [invoiceData, setInvoiceData] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAuthoritativeInvoice = async () => {
+            if (!order?._id) return;
+            try {
+                const res = await axios.get(`${serverUrl}/api/order/invoice/${order._id}`, {
+                    withCredentials: true
+                });
+                if (res.data) {
+                    setInvoiceData(res.data);
+                }
+            } catch (err) {
+                console.warn('Invoice endpoint fallback:', err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAuthoritativeInvoice();
+    }, [order?._id]);
+
     const formatDate = (dateString) => {
-        const date = new Date(dateString)
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
         return date.toLocaleDateString('en-IN', {
             day: '2-digit',
             month: 'short',
-            year: 'numeric'
-        })
-    }
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
 
     const downloadPDF = () => {
-        const input = document.getElementById('invoice-content')
+        const input = document.getElementById('cravely-invoice-sheet');
+        if (!input) return;
+        
         html2canvas(input, {
-            backgroundColor: '#12121a',
+            backgroundColor: '#0A090D',
             scale: 2,
             useCORS: true,
             logging: false,
         }).then((canvas) => {
-            const imgData = canvas.toDataURL('image/png')
-            const pdf = new jsPDF('p', 'mm', 'a4')
-            const pdfWidth = 210
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
-            pdf.save(`Invoice_${order._id.slice(-6)}.pdf`)
-        })
-    }
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = 210;
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            const invId = invoiceData?.invoiceNumber || `CRV-INV-${order?._id?.slice(-6)}`;
+            pdf.save(`${invId}.pdf`);
+        });
+    };
 
-    const firstShop = order.shopOrders?.[0]
-    const restaurant = firstShop?.shop
-    const isDelivered = firstShop?.status === 'delivered'
+    if (!order) return null;
+
+    // Authoritative data resolution
+    const firstShop = order.shopOrders?.[0]?.shop;
+    const invNumber = invoiceData?.invoiceNumber || order.invoiceNumber || `CRV-INV-${new Date(order.createdAt).getFullYear()}-${order._id.slice(-6).toUpperCase()}`;
+    const invDate = invoiceData?.invoiceDate || order.createdAt;
+    
+    // Items
+    const items = invoiceData?.items || (() => {
+        const list = [];
+        order.shopOrders?.forEach(so => {
+            so.shopOrderItems?.forEach(item => {
+                const price = Number(item.price) || 0;
+                const quantity = Number(item.quantity) || 1;
+                list.push({
+                    name: item.name || item.item?.name || 'Item',
+                    price,
+                    quantity,
+                    total: price * quantity
+                });
+            });
+        });
+        return list;
+    })();
+
+    // Financials
+    const subtotal = invoiceData?.financials?.subtotal ?? (order.subtotal || items.reduce((s, i) => s + i.total, 0));
+    const deliveryFee = invoiceData?.financials?.deliveryFee ?? (order.deliveryFee ?? 0);
+    const taxAmount = invoiceData?.financials?.taxAmount ?? (order.taxAmount ?? 23);
+    const platformFee = invoiceData?.financials?.platformFee ?? (order.platformFee ?? 0);
+    const discountAmount = invoiceData?.financials?.discountAmount ?? (order.discountAmount ?? 0);
+    const couponCode = invoiceData?.financials?.couponCode || order.couponCode;
+    const totalAmount = invoiceData?.financials?.totalAmount ?? (order.totalAmount || Math.max(0, subtotal - discountAmount + deliveryFee + taxAmount + platformFee));
+    const paymentStatus = invoiceData?.paymentStatus || order.paymentStatus || (order.payment ? 'paid' : 'pending');
+    const paymentMethod = invoiceData?.paymentMethod || order.paymentMethod || 'cod';
+    const transactionId = invoiceData?.transactionId || order.transactionId || order.razorpayPaymentId || null;
+    const isPaid = paymentStatus === 'paid' || order.payment === true;
+
+    // Customer & Restaurant
+    const customer = invoiceData?.customer || {
+        name: order.customerName || order.user?.fullName || 'Customer',
+        email: order.user?.email || 'N/A',
+        mobile: order.mobile || order.user?.mobile || 'N/A',
+        deliveryAddress: order.deliveryAddress?.text || 'Standard Address'
+    };
+
+    const restaurant = invoiceData?.restaurant || {
+        name: firstShop?.name || 'Cravely Restaurant Partner',
+        address: firstShop?.address || 'Restaurant Address',
+        city: firstShop?.city || 'Noida'
+    };
 
     return (
         <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className='fixed inset-0 bg-black/85 backdrop-blur-3xl flex items-center justify-center z-[99999] p-4'
+            className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[99999] p-4"
             onClick={onClose}
         >
             <motion.div 
-                initial={{ scale: 0.8, y: 30, opacity: 0 }}
-                animate={{ scale: 1, y: 0, opacity: 1 }}
-                exit={{ scale: 0.8, y: 30, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className='relative bg-[#18181D] rounded-3xl border border-white/10 max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl shadow-black/50'
+                initial={{ scale: 0.95, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 20 }}
+                className="relative bg-[#13121A] rounded-2xl border border-white/10 max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl text-white"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Premium Header Glow */}
-                <div className='absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ff2d55] to-transparent' />
-                <div className='absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ff6b35] to-transparent' />
+                {/* Header actions */}
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                        <FaFileInvoiceDollar className="text-[#FF6B00]" size={18} />
+                        <span className="font-bold text-sm">Official Tax Invoice</span>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        className="w-8 h-8 rounded-lg bg-black/40 hover:bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                    >
+                        <FaTimes size={14} />
+                    </button>
+                </div>
 
-                {/* Close Button */}
-                <motion.button 
-                    whileHover={{ scale: 1.1, rotate: 90 }}
-                    whileTap={{ scale: 0.9 }}
-                    className='absolute top-4 right-4 z-10 text-white/40 hover:text-white transition-all duration-300 w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 backdrop-blur-sm border border-white/5'
-                    onClick={onClose}
-                >
-                    <FaTimes size={18} />
-                </motion.button>
-
-                <div className='p-6'>
-                    {/* ✅ Invoice Content */}
-                    <div id="invoice-content" className='bg-gradient-to-b from-[#12121a] to-[#0a0a0f] rounded-2xl p-8 border border-white/5'>
+                {/* Printable Invoice Sheet */}
+                <div className="p-6">
+                    <div id="cravely-invoice-sheet" className="bg-[#0A090D] border border-white/10 rounded-xl p-6 sm:p-8 text-white font-sans">
                         
-                        {/* Header - Premium */}
-                        <div className='flex items-center justify-between pb-6 border-b border-white/10'>
-                            <div className='flex items-center gap-3'>
-                                <div className='w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ff2d55] to-[#ff6b35] flex items-center justify-center shadow-lg shadow-[#ff2d55]/30'>
-                                    <FaMotorcycle className='text-white text-2xl' />
-                                </div>
-                                <div>
-                                    <h1 className='text-2xl font-bold text-white tracking-tight'>Cravely</h1>
-                                    <p className='text-[10px] text-white/30 tracking-[0.2em] uppercase'>🍽️ Food Delivery</p>
-                                </div>
+                        {/* Header: Brand & Invoice Meta */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10">
+                            <div>
+                                <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                                    <span className="text-[#FF6B00]">CRAVELY</span>
+                                </h1>
+                                <p className="text-[10px] text-zinc-400 uppercase tracking-widest mt-0.5">
+                                    Gourmet Express Delivery • Tax Invoice
+                                </p>
                             </div>
-                            <div className='text-right'>
-                                <div className='flex items-center gap-1 justify-end'>
-                                    <span className='text-[10px] text-white/30 font-medium'>INVOICE</span>
-                                    <span className='text-[10px] bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] px-2 py-0.5 rounded-full text-white font-bold'>
-                                        #{order._id.slice(-6)}
-                                    </span>
-                                </div>
-                                <p className='text-[10px] text-white/20 mt-0.5'>{formatDate(order.createdAt)}</p>
+                            <div className="sm:text-right">
+                                <span className="text-xs font-mono font-bold text-[#FF6B00] bg-[#FF6B00]/10 border border-[#FF6B00]/20 px-2.5 py-1 rounded-md">
+                                    {invNumber}
+                                </span>
+                                <p className="text-[11px] text-zinc-400 mt-1.5">
+                                    Date: {formatDate(invDate)}
+                                </p>
+                                <p className="text-[10px] text-zinc-500 font-mono">
+                                    Order ID: #{order._id}
+                                </p>
                             </div>
                         </div>
 
-                        {/* Order Status */}
-                        <div className='flex items-center gap-2 py-4 border-b border-white/10'>
-                            <div className={`flex items-center gap-1.5 ${isDelivered ? 'text-green-400' : 'text-yellow-400'}`}>
-                                {isDelivered ? <FaCheckCircle size={12} /> : <FaClock size={12} />}
-                                <span className='text-xs font-medium'>
-                                    {isDelivered ? '✅ Order Delivered' : '⏳ Order Processing'}
+                        {/* Customer & Restaurant 2-Col Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-5 border-b border-white/10 text-xs">
+                            <div className="bg-[#13121A] p-3.5 rounded-xl border border-white/5">
+                                <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider mb-2">Billed To (Customer)</p>
+                                <p className="font-bold text-white text-sm">{customer.name}</p>
+                                <p className="text-zinc-300 mt-0.5">{customer.mobile}</p>
+                                <p className="text-zinc-400 text-[11px] mt-1 leading-relaxed">{customer.deliveryAddress}</p>
+                            </div>
+                            <div className="bg-[#13121A] p-3.5 rounded-xl border border-white/5">
+                                <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider mb-2">Restaurant Partner</p>
+                                <p className="font-bold text-white text-sm">{restaurant.name}</p>
+                                <p className="text-zinc-400 text-[11px] mt-1 leading-relaxed">{restaurant.address}, {restaurant.city}</p>
+                            </div>
+                        </div>
+
+                        {/* Items Table */}
+                        <div className="py-5 border-b border-white/10">
+                            <table className="w-full text-left text-xs">
+                                <thead>
+                                    <tr className="text-zinc-400 uppercase text-[10px] border-b border-white/10">
+                                        <th className="pb-2">Item</th>
+                                        <th className="pb-2 text-center">Qty</th>
+                                        <th className="pb-2 text-right">Unit Price</th>
+                                        <th className="pb-2 text-right">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {items.map((item, idx) => (
+                                        <tr key={idx}>
+                                            <td className="py-2.5 font-medium text-white">{item.name}</td>
+                                            <td className="py-2.5 text-center text-zinc-300">{item.quantity}</td>
+                                            <td className="py-2.5 text-right text-zinc-300">₹{item.price}</td>
+                                            <td className="py-2.5 text-right font-bold text-white">₹{item.total}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Financial Summary */}
+                        <div className="py-4 space-y-2 text-xs">
+                            <div className="flex justify-between text-zinc-300">
+                                <span>Food Items Subtotal</span>
+                                <span className="font-semibold text-white">₹{subtotal}</span>
+                            </div>
+                            <div className="flex justify-between text-zinc-300">
+                                <span>Delivery Fee</span>
+                                <span className={deliveryFee === 0 ? 'text-emerald-400 font-bold' : 'font-semibold text-white'}>
+                                    {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
                                 </span>
                             </div>
-                            <span className='text-white/20'>|</span>
-                            <span className='text-white/30 text-xs flex items-center gap-1'>
-                                <FaTag size={10} className="text-[#ff6b35]" />
-                                {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
-                            </span>
-                            <span className='text-white/20'>|</span>
-                            <span className='text-white/30 text-xs'>
-                                {order.payment ? '✅ Paid' : '⏳ Pending'}
-                            </span>
-                        </div>
-
-                        {/* ✅ Customer Details - Complete */}
-                        <div className='py-4 border-b border-white/10'>
-                            <p className='text-[10px] text-white/30 font-medium uppercase tracking-wider flex items-center gap-1.5 mb-3'>
-                                <FaUserCircle size={12} className="text-[#ff6b35]" /> Customer Details
-                            </p>
-                            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-                                <div className='bg-white/5 rounded-xl p-3 border border-white/5'>
-                                    <p className='text-[9px] text-white/30 font-medium uppercase tracking-wider'>Full Name</p>
-                                    <p className='text-white font-semibold text-sm flex items-center gap-1.5'>
-                                        <FaUser size={12} className="text-[#ff6b35]" />
-                                        {order.user?.fullName || 'Customer'}
-                                    </p>
+                            <div className="flex justify-between text-zinc-300">
+                                <span>Govt Taxes & Restaurant GST</span>
+                                <span className="font-semibold text-white">₹{taxAmount}</span>
+                            </div>
+                            {platformFee > 0 && (
+                                <div className="flex justify-between text-zinc-300">
+                                    <span>Platform Fee</span>
+                                    <span className="font-semibold text-white">₹{platformFee}</span>
                                 </div>
-                                <div className='bg-white/5 rounded-xl p-3 border border-white/5'>
-                                    <p className='text-[9px] text-white/30 font-medium uppercase tracking-wider'>Email</p>
-                                    <p className='text-white/70 text-sm flex items-center gap-1.5'>
-                                        <FaEnvelope size={12} className="text-[#ff6b35]" />
-                                        {order.user?.email || 'N/A'}
-                                    </p>
+                            )}
+                            {discountAmount > 0 && (
+                                <div className="flex justify-between text-emerald-400 font-bold py-1 bg-emerald-500/10 border border-emerald-500/20 px-2 rounded">
+                                    <span>Coupon Discount ({couponCode || 'PROMO'})</span>
+                                    <span>- ₹{discountAmount}</span>
                                 </div>
-                                <div className='bg-white/5 rounded-xl p-3 border border-white/5'>
-                                    <p className='text-[9px] text-white/30 font-medium uppercase tracking-wider'>Phone Number</p>
-                                    <p className='text-white/70 text-sm flex items-center gap-1.5'>
-                                        <FaPhone size={12} className="text-[#ff6b35]" />
-                                        {order.user?.mobile || 'N/A'}
-                                    </p>
+                            )}
+                            <div className="pt-3 border-t border-white/10 flex justify-between items-baseline">
+                                <div>
+                                    <span className="font-extrabold text-base text-white block">Final Total</span>
+                                    <span className="text-[10px] text-zinc-400">Inclusive of all taxes</span>
                                 </div>
-                                <div className='bg-white/5 rounded-xl p-3 border border-white/5'>
-                                    <p className='text-[9px] text-white/30 font-medium uppercase tracking-wider'>Delivery Address</p>
-                                    <p className='text-white/70 text-sm flex items-center gap-1.5'>
-                                        <MdLocationOn size={12} className="text-[#ff6b35]" />
-                                        {order.deliveryAddress?.text || 'Address not available'}
-                                    </p>
-                                </div>
+                                <span className="text-2xl font-extrabold text-[#FF6B00]">
+                                    ₹{totalAmount}
+                                </span>
                             </div>
                         </div>
 
-                        {/* Restaurant Details */}
-                        <div className='py-4 border-b border-white/10'>
-                            <p className='text-[10px] text-white/30 font-medium uppercase tracking-wider flex items-center gap-1.5 mb-3'>
-                                <MdRestaurant size={12} className="text-[#ff6b35]" /> Restaurant Details
-                            </p>
-                            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-                                <div className='bg-white/5 rounded-xl p-3 border border-white/5'>
-                                    <p className='text-[9px] text-white/30 font-medium uppercase tracking-wider'>Restaurant Name</p>
-                                    <p className='text-white font-semibold text-sm flex items-center gap-1.5'>
-                                        <FaUtensils size={12} className="text-[#ff6b35]" />
-                                        {restaurant?.name || 'Cravely'}
-                                    </p>
-                                </div>
-                                <div className='bg-white/5 rounded-xl p-3 border border-white/5'>
-                                    <p className='text-[9px] text-white/30 font-medium uppercase tracking-wider'>Restaurant Address</p>
-                                    <p className='text-white/70 text-sm flex items-center gap-1.5'>
-                                        <FaMapMarkerAlt size={12} className="text-[#ff6b35]" />
-                                        {restaurant?.address || 'N/A'}
-                                    </p>
-                                </div>
+                        {/* Payment & Settlement Details */}
+                        <div className="bg-[#13121A] p-4 rounded-xl border border-white/5 text-xs mt-3 flex items-center justify-between flex-wrap gap-3">
+                            <div>
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold block">Payment Method</span>
+                                <span className="font-bold text-white uppercase">{paymentMethod}</span>
+                                {transactionId && (
+                                    <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
+                                        Ref: {transactionId}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold block">Payment Status</span>
+                                <span className={`font-bold px-2 py-0.5 rounded text-[11px] ${
+                                    isPaid 
+                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                }`}>
+                                    {isPaid ? 'PAID IN FULL' : 'PAYMENT PENDING'}
+                                </span>
                             </div>
                         </div>
 
-                        {/* Items Table - Premium */}
-                        <div className='py-4 border-b border-white/10'>
-                            <p className='text-[10px] text-white/30 font-medium uppercase tracking-wider flex items-center gap-1.5 mb-3'>
-                                <FaUtensils size={10} className="text-[#ff6b35]" /> Order Items
-                            </p>
-                            <div className='space-y-2'>
-                                {order.shopOrders?.map((shopOrder) => (
-                                    shopOrder.shopOrderItems?.map((item, idx) => (
-                                        <div key={idx} className='flex items-center justify-between py-2.5 px-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all duration-300'>
-                                            <div className='flex items-center gap-3'>
-                                                <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-[#ff2d55]/20 to-[#ff6b35]/20 flex items-center justify-center'>
-                                                    <FaUtensils className='text-white/30 text-xs' />
-                                                </div>
-                                                <div>
-                                                    <p className='text-white text-sm font-medium'>{item.name}</p>
-                                                    <p className='text-white/30 text-[10px]'>Qty: {item.quantity} × ₹{item.price}</p>
-                                                </div>
-                                            </div>
-                                            <p className='text-white font-semibold text-sm'>₹{item.price * item.quantity}</p>
-                                        </div>
-                                    ))
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Totals */}
-                        <div className='py-4'>
-                            <div className='flex justify-between items-center py-1.5'>
-                                <span className='text-white/40 text-sm'>Subtotal</span>
-                                <span className='text-white/60 text-sm'>₹{order.totalAmount}</span>
-                            </div>
-                            <div className='flex justify-between items-center py-1.5'>
-                                <span className='text-white/40 text-sm'>Delivery Fee</span>
-                                <span className='text-white/60 text-sm'>₹{order.deliveryFee || 30}</span>
-                            </div>
-                            <div className='flex justify-between items-center py-1.5'>
-                                <span className='text-white/40 text-sm'>Tax</span>
-                                <span className='text-white/60 text-sm'>₹0</span>
-                            </div>
-                            <div className='h-px bg-white/10 my-2' />
-                            <div className='flex justify-between items-center'>
-                                <span className='text-white font-bold text-base'>Total</span>
-                                <span className='text-[#ff6b35] font-bold text-2xl'>₹{order.totalAmount}</span>
-                            </div>
-                            <p className='text-white/20 text-[10px] text-right mt-1'>Inclusive of all taxes</p>
-                        </div>
-
-                        {/* Footer */}
-                        <div className='pt-4 border-t border-white/10 text-center'>
-                            <p className='text-white/30 text-xs flex items-center justify-center gap-2'>
-                                <span>Thank you for ordering with</span>
-                                <span className='text-[#ff6b35] font-semibold'>Cravely</span>
-                                <span className='text-white/20'>🍕</span>
-                            </p>
-                            <p className='text-white/20 text-[10px] mt-1'>For queries, contact support@cravely.com</p>
-                            <div className='flex items-center justify-center gap-4 mt-2 text-white/10 text-[10px]'>
-                                <span>Secure</span>
-                                <span className='w-px h-3 bg-white/10' />
-                                <span>Trusted</span>
-                                <span className='w-px h-3 bg-white/10' />
-                                <span>Premium</span>
-                            </div>
+                        {/* Footer disclaimer */}
+                        <div className="mt-6 pt-4 border-t border-white/10 text-center text-[10px] text-zinc-500">
+                            <p>This is a computer-generated tax invoice and requires no physical signature.</p>
+                            <p className="mt-0.5">&copy; {new Date().getFullYear()} Cravely Food Delivery. Support: support@cravely.com</p>
                         </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className='mt-6 flex flex-wrap gap-3'>
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.95 }}
+                    {/* Action Bar */}
+                    <div className="flex gap-3 mt-4">
+                        <button
+                            type="button"
                             onClick={downloadPDF}
-                            className='flex-1 sm:flex-none px-6 py-3 rounded-xl bg-gradient-to-r from-[#ff2d55] to-[#ff6b35] text-white font-semibold hover:scale-105 transition-all duration-300 shadow-lg shadow-[#ff2d55]/20 flex items-center justify-center gap-2 text-sm'
+                            className="flex-1 py-3 rounded-xl bg-[#FF6B00] hover:bg-[#E55A00] text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors"
                         >
-                            <FaDownload size={16} />
-                            Download Invoice
-                        </motion.button>
-                        
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.95 }}
+                            <FaDownload size={13} /> Download PDF Invoice
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => window.print()}
-                            className='flex-1 sm:flex-none px-6 py-3 rounded-xl border border-white/15 text-white/60 font-semibold hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2 text-sm'
+                            className="px-5 py-3 rounded-xl bg-black/40 hover:bg-white/10 border border-white/10 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors"
                         >
-                            <FaPrint size={16} />
-                            Print
-                        </motion.button>
-                        
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={onClose}
-                            className='flex-1 sm:flex-none px-6 py-3 rounded-xl bg-white/5 text-white/40 font-semibold hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2 text-sm border border-white/5'
-                        >
-                            <FaTimes size={16} />
-                            Close
-                        </motion.button>
+                            <FaPrint size={13} /> Print
+                        </button>
                     </div>
                 </div>
             </motion.div>
         </motion.div>
-    )
+    );
 }
 
-export default Invoice
+export default Invoice;

@@ -10,7 +10,7 @@ import { toast } from 'react-toastify'
 import { serverUrl } from '../../config'
 import { ClipLoader } from 'react-spinners'
 
-function LocationSelector() {
+function LocationSelector({ theme = "dark" }) {
     const dispatch = useDispatch()
     const { currentCity, savedAddresses, userData } = useSelector(state => state.user)
     const [showDropdown, setShowDropdown] = useState(false)
@@ -247,39 +247,53 @@ function LocationSelector() {
         )
     }
 
+    const isLight = theme === "light"
+
     return (
         <div className='relative' ref={dropdownRef}>
             <div 
-                className='flex items-center gap-1.5 px-3 py-2 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:scale-105'
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-all duration-300 cursor-pointer hover:scale-105 ${
+                    isLight 
+                        ? 'bg-orange-50/90 border border-orange-200/80 hover:bg-orange-100/80 text-gray-800 shadow-sm' 
+                        : 'bg-white/5 border border-white/5 hover:bg-white/10 text-white'
+                }`}
                 onClick={() => setShowDropdown(!showDropdown)}
             >
-                <FaLocationDot className='text-[#ff6b35]' size={16} />
-                <span className='text-sm font-medium text-white max-w-[120px] truncate'>
-                    {currentCity || 'Select Location'}
+                <FaLocationDot className='text-[#ff5200]' size={15} />
+                <span className={`text-xs sm:text-sm font-semibold max-w-[120px] truncate ${isLight ? 'text-gray-800' : 'text-white'}`}>
+                    {currentCity || 'Greater Noida'}
                 </span>
-                <FaChevronDown className={`text-white/40 text-xs transition-transform duration-300 ${showDropdown ? 'rotate-180' : ''}`} />
+                <FaChevronDown className={`${isLight ? 'text-gray-400' : 'text-white/40'} text-xs transition-transform duration-300 ${showDropdown ? 'rotate-180' : ''}`} />
             </div>
 
             {showDropdown && (
-                <div className='absolute top-full left-0 mt-2 w-[320px] bg-[#1a1a2e]/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl shadow-black/50 z-[9999] overflow-hidden animate-fade-in'>
+                <div className={`absolute top-full left-0 mt-2 w-[320px] ${
+                    isLight 
+                        ? 'bg-white border border-orange-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] text-gray-800' 
+                        : 'bg-[#1a1a2e]/95 border-white/10 shadow-2xl shadow-black/50 text-white'
+                } backdrop-blur-xl rounded-2xl border z-[9999] overflow-hidden animate-fade-in`}>
                     
                     {/* Search Header */}
-                    <div className='p-3 border-b border-white/10'>
+                    <div className={`p-3 border-b ${isLight ? 'border-gray-100' : 'border-white/10'}`}>
                         <div className='relative'>
                             <input
                                 type="text"
                                 placeholder="Search for area, street..."
-                                className='w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 pl-9 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#ff6b35]/50 transition-all duration-300'
+                                className={`w-full ${
+                                    isLight 
+                                        ? 'bg-gray-50 border-gray-200 text-gray-800 placeholder:text-gray-400 focus:border-[#ff5200]' 
+                                        : 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#ff6b35]/50'
+                                } border rounded-xl px-3 py-2.5 pl-9 text-sm transition-all duration-300 focus:outline-none`}
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value)
                                     searchAddress(e.target.value)
                                 }}
                             />
-                            <FaSearch className='absolute left-3 top-3 text-white/30' size={14} />
+                            <FaSearch className={`absolute left-3 top-3 ${isLight ? 'text-gray-400' : 'text-white/30'}`} size={14} />
                             {searching && (
                                 <div className='absolute right-3 top-2.5'>
-                                    <ClipLoader size={16} color="#ff6b35" />
+                                    <ClipLoader size={16} color="#ff5200" />
                                 </div>
                             )}
                         </div>
@@ -289,13 +303,13 @@ function LocationSelector() {
                                 {suggestions.map((s, i) => (
                                     <div
                                         key={i}
-                                        className='px-3 py-2 hover:bg-white/5 cursor-pointer rounded-xl text-sm flex items-start gap-2 transition-all duration-200'
+                                        className={`px-3 py-2 ${isLight ? 'hover:bg-orange-50' : 'hover:bg-white/5'} cursor-pointer rounded-xl text-sm flex items-start gap-2 transition-all duration-200`}
                                         onClick={() => selectLocation(s)}
                                     >
-                                        <FaMapMarkerAlt className='text-[#ff6b35] mt-0.5' size={12} />
+                                        <FaMapMarkerAlt className='text-[#ff5200] mt-0.5' size={12} />
                                         <div>
-                                            <p className='font-medium text-white'>{s.address_line1}</p>
-                                            <p className='text-xs text-white/40'>{s.address_line2}</p>
+                                            <p className={`font-medium ${isLight ? 'text-gray-800' : 'text-white'}`}>{s.address_line1}</p>
+                                            <p className={`text-xs ${isLight ? 'text-gray-400' : 'text-white/40'}`}>{s.address_line2}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -305,32 +319,32 @@ function LocationSelector() {
 
                     {/* Current Location */}
                     <div 
-                        className={`p-3 border-b border-white/10 hover:bg-white/5 cursor-pointer flex items-center gap-3 transition-all duration-200 ${gettingLocation ? 'opacity-50' : ''}`}
+                        className={`p-3 border-b ${isLight ? 'border-gray-100 hover:bg-orange-50/60' : 'border-white/10 hover:bg-white/5'} cursor-pointer flex items-center gap-3 transition-all duration-200 ${gettingLocation ? 'opacity-50' : ''}`}
                         onClick={!gettingLocation ? getCurrentLocation : undefined}
                     >
-                        <div className='w-8 h-8 rounded-full bg-[#ff2d55]/20 flex items-center justify-center'>
+                        <div className='w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center'>
                             {gettingLocation ? (
-                                <ClipLoader size={14} color="#ff2d55" />
+                                <ClipLoader size={14} color="#ff5200" />
                             ) : (
-                                <FaLocationDot className='text-[#ff2d55]' size={14} />
+                                <FaLocationDot className='text-[#ff5200]' size={14} />
                             )}
                         </div>
                         <div>
-                            <p className='text-sm font-medium text-white'>
+                            <p className={`text-sm font-semibold ${isLight ? 'text-gray-800' : 'text-white'}`}>
                                 {gettingLocation ? 'Detecting...' : '📍 Use Current Location'}
                             </p>
-                            <p className='text-xs text-white/40'>Detect your current location</p>
+                            <p className={`text-xs ${isLight ? 'text-gray-400' : 'text-white/40'}`}>Detect your current location</p>
                         </div>
                     </div>
 
                     {/* Saved Addresses */}
                     {savedAddresses.length > 0 && (
-                        <div className='p-2 border-b border-white/10'>
-                            <p className='text-xs font-semibold text-white/40 uppercase px-2 py-1 tracking-wider'>Saved Addresses</p>
+                        <div className={`p-2 border-b ${isLight ? 'border-gray-100' : 'border-white/10'}`}>
+                            <p className={`text-xs font-semibold ${isLight ? 'text-gray-400' : 'text-white/40'} uppercase px-2 py-1 tracking-wider`}>Saved Addresses</p>
                             {savedAddresses.map((addr) => (
                                 <div 
                                     key={addr._id} 
-                                    className='flex items-center justify-between px-3 py-2 hover:bg-white/5 rounded-xl cursor-pointer transition-all duration-200 group'
+                                    className={`flex items-center justify-between px-3 py-2 ${isLight ? 'hover:bg-orange-50' : 'hover:bg-white/5'} rounded-xl cursor-pointer transition-all duration-200 group`}
                                     onClick={() => {
                                         dispatch(setCurrentCity(addr.label || 'Saved'))
                                         dispatch(setCurrentAddress(addr.text))
@@ -340,32 +354,32 @@ function LocationSelector() {
                                     }}
                                 >
                                     <div className='flex items-center gap-3 flex-1 min-w-0'>
-                                        <div className='w-8 h-8 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0'>
-                                            {addr.type === 'home' ? <FaHome size={14} className='text-blue-400' /> :
-                                             addr.type === 'office' ? <FaBriefcase size={14} className='text-purple-400' /> :
-                                             <FaMapMarkerAlt size={14} className='text-green-400' />}
+                                        <div className={`w-8 h-8 rounded-full ${isLight ? 'bg-orange-100/60' : 'bg-white/5'} flex items-center justify-center flex-shrink-0`}>
+                                            {addr.type === 'home' ? <FaHome size={14} className='text-blue-500' /> :
+                                             addr.type === 'office' ? <FaBriefcase size={14} className='text-purple-500' /> :
+                                             <FaMapMarkerAlt size={14} className='text-green-500' />}
                                         </div>
                                         <div className='flex-1 min-w-0'>
                                             <div className='flex items-center gap-2'>
-                                                <span className='text-sm font-medium text-white truncate'>{addr.label}</span>
+                                                <span className={`text-sm font-semibold ${isLight ? 'text-gray-800' : 'text-white'} truncate`}>{addr.label}</span>
                                                 {addr.isDefault && (
-                                                    <span className='text-[9px] bg-[#ff2d55] text-white px-1.5 py-0.5 rounded-full flex-shrink-0'>Default</span>
+                                                    <span className='text-[9px] bg-[#ff5200] text-white px-1.5 py-0.5 rounded-full flex-shrink-0'>Default</span>
                                                 )}
                                             </div>
-                                            <p className='text-xs text-white/40 truncate'>{addr.text}</p>
+                                            <p className={`text-xs ${isLight ? 'text-gray-400' : 'text-white/40'} truncate`}>{addr.text}</p>
                                         </div>
                                     </div>
                                     <div className='flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200'>
                                         {!addr.isDefault && (
                                             <button 
-                                                className='text-white/30 hover:text-green-400 p-1 rounded-full hover:bg-green-500/10 transition-all duration-200'
+                                                className={`${isLight ? 'text-gray-400' : 'text-white/30'} hover:text-green-500 p-1 rounded-full transition-all duration-200`}
                                                 onClick={(e) => { e.stopPropagation(); handleSetDefault(addr._id) }}
                                             >
                                                 <FaCheck size={12} />
                                             </button>
                                         )}
                                         <button 
-                                            className='text-white/30 hover:text-red-400 p-1 rounded-full hover:bg-red-500/10 transition-all duration-200'
+                                            className={`${isLight ? 'text-gray-400' : 'text-white/30'} hover:text-red-500 p-1 rounded-full transition-all duration-200`}
                                             onClick={(e) => { e.stopPropagation(); handleDeleteAddress(addr._id) }}
                                         >
                                             <FaTimes size={12} />
@@ -380,20 +394,20 @@ function LocationSelector() {
                     <div className='p-2'>
                         {!showAddressForm ? (
                             <button 
-                                className='w-full text-sm text-[#ff6b35] font-medium text-center py-2 hover:bg-white/5 rounded-xl transition-all duration-200'
+                                className={`w-full text-sm font-bold text-[#ff5200] text-center py-2 ${isLight ? 'hover:bg-orange-50' : 'hover:bg-white/5'} rounded-xl transition-all duration-200`}
                                 onClick={() => setShowAddressForm(true)}
                             >
                                 + Add New Address
                             </button>
                         ) : (
-                            <div className='p-2 space-y-2 bg-white/5 rounded-xl'>
+                            <div className={`p-2 space-y-2 ${isLight ? 'bg-orange-50/60 border border-orange-100' : 'bg-white/5'} rounded-xl`}>
                                 <div className='grid grid-cols-2 gap-2'>
                                     <select
-                                        className='bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-[#ff6b35]/50 transition-all duration-300'
+                                        className={`${isLight ? 'bg-white border-gray-200 text-gray-800' : 'bg-white/5 border-white/10 text-white'} border rounded-lg px-2 py-1.5 text-sm focus:outline-none transition-all duration-300`}
                                         value={addressForm.type}
                                         onChange={(e) => setAddressForm({ ...addressForm, type: e.target.value, label: e.target.value === 'home' ? 'Home' : e.target.value === 'office' ? 'Office' : 'Other' })}
                                     >
-                                        <option value="home" className='bg-[#1a1a2e]'>🏠 Home</option>
+                                        <option value="home" className={isLight ? 'bg-white text-gray-800' : 'bg-[#1a1a2e]'}>🏠 Home</option>
                                         <option value="office" className='bg-[#1a1a2e]'>💼 Office</option>
                                         <option value="other" className='bg-[#1a1a2e]'>📍 Other</option>
                                     </select>
@@ -456,7 +470,7 @@ function LocationSelector() {
                 </div>
             )}
 
-            <style jsx>{`
+            <style>{`
                 @keyframes fade-in {
                     from { opacity: 0; transform: translateY(-8px) scale(0.95); }
                     to { opacity: 1; transform: translateY(0) scale(1); }

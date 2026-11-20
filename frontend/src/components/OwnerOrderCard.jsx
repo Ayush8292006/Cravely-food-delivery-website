@@ -34,15 +34,16 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
 
     const shopOrder = data?.shopOrders?.[0] || data?.shopOrders || {}
     const status = shopOrder?.status || 'pending'
-    const subtotal = shopOrder?.subtotal || 0
+    const subtotal = Number(shopOrder?.subtotal) || Number(data?.subtotal) || 0
     const orderItems = shopOrder?.shopOrderItems || []
     const assignedBoy = shopOrder?.assignedDeliveryBoy
-    const isPaymentSuccessful = data?.payment === true || data?.payment === "true"
+    const isPaymentSuccessful = data?.payment === true || data?.payment === "true" || data?.paymentStatus === 'paid'
     
-    // ✅ BILL CALCULATION (match backend)
-    const orderDeliveryFee = data?.deliveryFee ?? (subtotal >= 199 ? 0 : 30)
-    const orderTaxAmount = data?.taxAmount ?? 23
-    const orderFinalTotal = data?.totalAmount || (subtotal + orderDeliveryFee + orderTaxAmount)
+    // ✅ AUTHORITATIVE RESTAURANT FINANCIALS
+    const commissionAmount = Number(shopOrder?.commissionAmount) || Math.round(subtotal * 0.10)
+    const restaurantEarnings = Number(shopOrder?.restaurantEarnings) || Math.max(0, subtotal - commissionAmount)
+    const settlementStatus = shopOrder?.settlementStatus || 'pending'
+    const customerTotalAmount = Number(data?.totalAmount) || 0
     
     const shopId = shopOrder?.shop?._id || 
                    shopOrder?.shop || 
@@ -372,30 +373,37 @@ function OwnerOrderCard({ data, onStatusUpdate }) {
                     </div>
                 </div>
 
-                {/* ✅ BILL BREAKDOWN - NEW */}
-                <div className='p-3 rounded-xl bg-orange-50 border-2 border-orange-200'>
-                    <p className='text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5'>
-                        <FaReceipt size={10} className="text-orange-500" />
-                        Bill Breakdown
-                    </p>
+                {/* ✅ RESTAURANT FINANCIALS & SETTLEMENT */}
+                <div className='p-3.5 rounded-xl bg-orange-50 border-2 border-orange-200'>
+                    <div className='flex items-center justify-between mb-2'>
+                        <p className='text-gray-700 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5'>
+                            <FaReceipt size={11} className="text-orange-500" />
+                            Restaurant Revenue & Earnings
+                        </p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            settlementStatus === 'settled' 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
+                                : 'bg-amber-50 text-amber-700 border-amber-300'
+                        }`}>
+                            Settlement: {settlementStatus.toUpperCase()}
+                        </span>
+                    </div>
                     <div className='space-y-1.5'>
                         <div className='flex justify-between items-center text-xs'>
-                            <span className='text-gray-600 font-medium'>Item Total</span>
-                            <span className='text-gray-800 font-bold'>₹{subtotal}</span>
+                            <span className='text-gray-600 font-medium'>Food Items Subtotal</span>
+                            <span className='text-gray-900 font-bold'>₹{subtotal}</span>
                         </div>
                         <div className='flex justify-between items-center text-xs'>
-                            <span className='text-gray-600 font-medium'>Delivery Fee</span>
-                            <span className={orderDeliveryFee === 0 ? 'text-green-600 font-bold' : 'text-gray-800 font-bold'}>
-                                {orderDeliveryFee === 0 ? 'FREE' : `₹${orderDeliveryFee}`}
-                            </span>
+                            <span className='text-gray-600 font-medium'>Platform Commission (10%)</span>
+                            <span className='text-red-600 font-semibold'>- ₹{commissionAmount}</span>
                         </div>
-                        <div className='flex justify-between items-center text-xs'>
-                            <span className='text-gray-600 font-medium'>Tax (GST)</span>
-                            <span className='text-gray-800 font-bold'>₹{orderTaxAmount}</span>
+                        <div className='border-t-2 border-orange-200 pt-1.5 mt-1.5 flex justify-between items-center'>
+                            <span className='text-gray-800 text-xs font-bold'>Net Restaurant Earnings</span>
+                            <span className='text-emerald-700 font-extrabold text-base'>₹{restaurantEarnings}</span>
                         </div>
-                        <div className='border-t-2 border-orange-300 pt-1.5 mt-1.5 flex justify-between items-center'>
-                            <span className='text-gray-800 text-sm font-bold'>Grand Total</span>
-                            <span className='text-orange-600 font-bold text-base'>₹{orderFinalTotal}</span>
+                        <div className='pt-1 text-[10px] text-gray-500 flex justify-between border-t border-orange-100 mt-1'>
+                            <span>Customer Total Paid:</span>
+                            <span className='font-semibold text-gray-700'>₹{customerTotalAmount} ({data.paymentMethod?.toUpperCase()})</span>
                         </div>
                     </div>
                 </div>

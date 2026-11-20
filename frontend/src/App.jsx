@@ -47,6 +47,13 @@ import CategoryPage from './pages/CategoryPage'
 import OwnerDashboard from './components/OwnerDashboard'
 import OwnerMyOrders from './pages/OwnerMyOrders'
 
+import HelpSupport from './pages/HelpSupport'
+import Offers from './pages/Offers'
+import SearchPage from './pages/SearchPage'
+import AdminRefunds from './pages/admin/AdminRefunds'
+import AdminTickets from './pages/admin/AdminTickets'
+import AdminCoupons from './pages/admin/AdminCoupons'
+
 import DeliveryBoy from './components/DeliveryBoy.jsx'
 import DeliveryBoyOrders from './components/DeliveryBoyOrders.jsx'
 import DeliveryBoyProfile from './components/DeliveryBoyProfile.jsx'
@@ -86,19 +93,7 @@ function App() {
     }
   }, [showSplash])
 
-  // ✅ Token check - logout if token missing
-  useEffect(() => {
-    const hasToken = document.cookie.includes('token=')
-    const hasUserData = localStorage.getItem('userData')
-    
-    if (!hasToken && hasUserData) {
-      console.log("🔴 Token missing! Forcing logout...")
-      localStorage.removeItem('userData')
-      sessionStorage.clear()
-      dispatch({ type: 'user/clearUserData' })
-      window.location.href = '/landing'
-    }
-  }, [dispatch])
+  // Token and session are validated securely by useGetCurrentUser via /api/user/current
 
   // ✅ Socket Connection
   useEffect(() => {
@@ -110,7 +105,7 @@ function App() {
       return
     }
 
-    const socketInstance = io(serverUrl, { 
+    const socketInstance = io(serverUrl, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -119,9 +114,9 @@ function App() {
       reconnectionDelayMax: 5000,
       timeout: 20000,
     })
-    
+
     socketRef.current = socketInstance
-    
+
     socketInstance.on('connect', () => {
       console.log("🔗 Socket connected")
       if (userData?._id) {
@@ -153,7 +148,7 @@ function App() {
     )
   }
 
-  const showFooter = location.pathname === '/landing' || location.pathname === '/home'
+  const showFooter = location.pathname === '/home'
 
   return (
     <>
@@ -178,13 +173,18 @@ function App() {
             <Route path='/about' element={<About />} />
             <Route path='/contact' element={<Contact />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
-            
+
             {/* ✅ Auth Routes */}
             <Route path='/signup' element={!userData ? <SignUp /> : <Navigate to={"/"} />} />
             <Route path='/signin' element={!userData ? <SignIn /> : <Navigate to={"/"} />} />
             <Route path='/forgot-password' element={!userData ? <ForgotPassword /> : <Navigate to={"/"} />} />
             <Route path='/login-otp' element={!userData ? <LoginOtp /> : <Navigate to={"/"} />} />
-            
+
+            {/* ✅ Public / Discovery Routes */}
+            <Route path='/help' element={<HelpSupport />} />
+            <Route path='/offers' element={<Offers />} />
+            <Route path='/search' element={<SearchPage />} />
+
             {/* ✅ Admin Routes */}
             <Route path='/admin/login' element={<SuperAdminLogin />} />
             <Route path='/admin/dashboard' element={userData?.role === 'superAdmin' ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
@@ -193,44 +193,47 @@ function App() {
             <Route path='/admin/orders' element={userData?.role === 'superAdmin' ? <AdminOrders /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/delivery-boys' element={userData?.role === 'superAdmin' ? <AdminDeliveryBoys /> : <Navigate to="/admin/login" />} />
             <Route path='/admin/revenue' element={userData?.role === 'superAdmin' ? <AdminRevenue /> : <Navigate to="/admin/login" />} />
-            
+            <Route path='/admin/refunds' element={userData?.role === 'superAdmin' ? <AdminRefunds /> : <Navigate to="/admin/login" />} />
+            <Route path='/admin/tickets' element={userData?.role === 'superAdmin' ? <AdminTickets /> : <Navigate to="/admin/login" />} />
+            <Route path='/admin/coupons' element={userData?.role === 'superAdmin' ? <AdminCoupons /> : <Navigate to="/admin/login" />} />
+
             {/* ✅ Owner Routes */}
             <Route path='/owner-dashboard' element={userData?.role === 'owner' ? <OwnerDashboard /> : <Navigate to="/signin" />} />
             <Route path='/owner-orders' element={userData?.role === 'owner' ? <OwnerMyOrders /> : <Navigate to="/signin" />} />
-            
+
             {/* ✅ User Routes */}
-            <Route path='/home' element={userData ? <Home /> : <Navigate to={"/landing"} />} />
-            <Route path='/restaurants' element={userData ? <Restaurants /> : <Navigate to={"/landing"} />} />
+            <Route path='/home' element={<Home />} />
+            <Route path='/restaurants' element={<Restaurants />} />
             <Route path='/create-edit-shop' element={userData ? <CreateEditShop /> : <Navigate to={"/landing"} />} />
             <Route path='/add-item' element={userData ? <AddItem /> : <Navigate to={"/landing"} />} />
             <Route path='/edit-item/:itemId' element={userData ? <EditItem /> : <Navigate to={"/landing"} />} />
-            <Route path='/cart' element={userData ? <CartPage /> : <Navigate to={"/landing"} />} />
-            <Route path='/checkout' element={userData ? <CheckOut /> : <Navigate to={"/landing"} />} />
+            <Route path='/cart' element={<CartPage />} />
+            <Route path='/checkout' element={<CheckOut />} />
             <Route path='/order-placed' element={userData ? <OrderPlaced /> : <Navigate to={"/landing"} />} />
             <Route path='/profile' element={userData ? <Profile /> : <Navigate to={"/landing"} />} />
             <Route path='/my-orders' element={userData ? <MyOrders /> : <Navigate to={"/landing"} />} />
-            <Route path='/category/:categoryName' element={userData ? <CategoryPage /> : <Navigate to={"/landing"} />} />
+            <Route path='/category/:categoryName' element={<CategoryPage />} />
             <Route path='/track-order/:orderId' element={userData ? <TrackOrderPage /> : <Navigate to={"/landing"} />} />
-            <Route path='/shop/:shopId' element={userData ? <Shop /> : <Navigate to={"/landing"} />} />
-            
+            <Route path='/shop/:shopId' element={<Shop />} />
+
             {/* ✅ DELIVERY BOY ROUTES - All in Components */}
-            <Route 
-              path='/delivery-dashboard' 
-              element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />} 
+            <Route
+              path='/delivery-dashboard'
+              element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />}
             />
-            <Route 
-              path='/delivery-orders' 
-              element={userData?.role === 'deliveryBoy' ? <DeliveryBoyOrders /> : <Navigate to="/landing" />} 
+            <Route
+              path='/delivery-orders'
+              element={userData?.role === 'deliveryBoy' ? <DeliveryBoyOrders /> : <Navigate to="/landing" />}
             />
-            <Route 
-              path='/delivery-profile' 
-              element={userData?.role === 'deliveryBoy' ? <DeliveryBoyProfile /> : <Navigate to="/landing" />} 
+            <Route
+              path='/delivery-profile'
+              element={userData?.role === 'deliveryBoy' ? <DeliveryBoyProfile /> : <Navigate to="/landing" />}
             />
-            <Route 
-              path='/delivery-earnings' 
-              element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />} 
+            <Route
+              path='/delivery-earnings'
+              element={userData?.role === 'deliveryBoy' ? <DeliveryBoy /> : <Navigate to="/landing" />}
             />
-            
+
             {/* ✅ Fallback */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
@@ -238,7 +241,7 @@ function App() {
         {showFooter && <Footer />}
       </div>
 
-      <ToastContainer 
+      <ToastContainer
         position="top-right"
         autoClose={3500}
         hideProgressBar={false}

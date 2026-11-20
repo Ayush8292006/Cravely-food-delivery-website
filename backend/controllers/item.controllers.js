@@ -100,15 +100,21 @@ export const getItemByCity = async (req, res) => {
         if (!city) {
             return res.status(400).json({ message: "city is required" })
         }
-        const shops = await Shop.find({
-            city: { $regex: new RegExp(`^${city}$`, "i") }
+        let shops = await Shop.find({
+            city: { $regex: new RegExp(`^${city}$`, "i") },
+            isApproved: true
         }).populate('items')
-        if (!shops) {
-            return res.status(400).json({ message: "shops not found" })
+
+        if ((!shops || shops.length === 0) && (city.toLowerCase() === 'all' || city.toLowerCase() === 'nearby')) {
+            shops = await Shop.find({ isApproved: true }).populate('items')
         }
-        const shopIds = shops.map((shop) => shop._id)
-        const items = await Item.find({ shop: { $in: shopIds } }).populate("shop")
-        return res.status(200).json(items)
+
+        const shopIds = (shops || []).map((shop) => shop._id)
+        let items = await Item.find({ shop: { $in: shopIds } }).populate("shop")
+        if ((!items || items.length === 0) && shops.length === 0) {
+            items = await Item.find().populate("shop").limit(30)
+        }
+        return res.status(200).json(items || [])
     } catch (error) {
         return res.status(500).json({ message: `Get item by city error ${error}` })
     }
@@ -132,28 +138,33 @@ export const getItemsByShop = async (req, res) => {
 export const searchItems = async (req, res) => {
     try {
         const { query, city } = req.query
-        if (!query || !city) {
-            return null
-        }
-        const shops = await Shop.find({
-            city: { $regex: new RegExp(`^${city}$`, "i") }
-        }).populate('items')
-        if (!shops) {
-            return res.status(400).json({ message: "shops not found" })
+        if (!query || !query.trim()) {
+            return res.status(200).json([])
         }
 
+        let shopFilter = { isApproved: true }
+        if (city && city.trim() && city.toLowerCase() !== 'all') {
+            shopFilter.city = { $regex: new RegExp(`^${city.trim()}$`, "i") }
+        }
+
+        const shops = await Shop.find(shopFilter)
         const shopIds = shops.map(s => s._id)
-        const items = await Item.find({
-            shop: { $in: shopIds },
-            $or: [
-                { name: { $regex: query, $options: "i" } },
-                { category: { $regex: query, $options: "i" } }
-            ]
-        }).populate("shop", "name image")
 
-        return res.status(200).json(items)
+        const filter = {
+            $or: [
+                { name: { $regex: query.trim(), $options: "i" } },
+                { category: { $regex: query.trim(), $options: "i" } }
+            ]
+        }
+        if (shopIds.length > 0) {
+            filter.shop = { $in: shopIds }
+        }
+
+        const items = await Item.find(filter).populate("shop", "name image rating city address")
+
+        return res.status(200).json(items || [])
     } catch (error) {
-        return res.status(500).json({ message: `search item error ${error}` })
+        return res.status(500).json({ message: `search item error: ${error.message}` })
     }
 }
 
@@ -197,57 +208,55 @@ export const searchItemsWithFilters = async (req, res) => {
             query, 
             city, 
             category,
-            foodType,  // 'veg' or 'non-veg'
+            foodType,
             minPrice,
             maxPrice,
             rating 
         } = req.query
 
-        if (!query || !city) {
-            return res.status(400).json({ message: "Query and city are required" })
-        }
+        let filter = {}
 
-        // ✅ Find shops in city
-        const shops = await Shop.find({
-            city: { $regex: new RegExp(`^${city}$`, "i") }
-        })
-
-        const shopIds = shops.map(s => s._id)
-
-        // ✅ Build filters
-        let filter = {
-            shop: { $in: shopIds },
-            $or: [
-                { name: { $regex: query, $options: "i" } },
-                { category: { $regex: query, $options: "i" } }
+        if (query && query.trim()) {
+            filter.$or = [
+                { name: { $regex: query.trim(), $options: "i" } },
+                { category: { $regex: query.trim(), $options: "i" } }
             ]
         }
 
-        // ✅ Food type filter
+        if (city && city.trim() && city.toLowerCase() !== 'all') {
+            const shops = await Shop.find({
+                city: { $regex: new RegExp(`^${city.trim()}$`, "i") }
+            })
+            const shopIds = shops.map(s => s._id)
+            if (shopIds.length > 0) {
+                filter.shop = { $in: shopIds }
+            }
+        }
+
         if (foodType && foodType !== 'all') {
             filter.foodType = foodType
         }
 
-        // ✅ Category filter
         if (category && category !== 'all') {
-            filter.category = category
+            filter.category = { $regex: new RegExp(`^${category}$`, "i") }
         }
 
-        // ✅ Price range filter
-        if (minPrice) filter.price = { $gte: parseInt(minPrice) }
-        if (maxPrice) filter.price = { ...filter.price, $lte: parseInt(maxPrice) }
+        if (minPrice || maxPrice) {
+            filter.price = {}
+            if (minPrice) filter.price.$gte = parseInt(minPrice)
+            if (maxPrice) filter.price.$lte = parseInt(maxPrice)
+        }
 
-        // ✅ Rating filter
         if (rating && rating !== 'all') {
-            filter['rating.average'] = { $gte: parseInt(rating) }
+            filter['rating.average'] = { $gte: Number(rating) }
         }
 
         const items = await Item.find(filter)
-            .populate("shop", "name image")
+            .populate("shop", "name image rating city address")
             .sort({ 'rating.average': -1 })
 
         return res.status(200).json(items)
     } catch (error) {
-        return res.status(500).json({ message: `Search error: ${error.message}` })
+        return res.status(500).json({ message: error.message })
     }
 }
