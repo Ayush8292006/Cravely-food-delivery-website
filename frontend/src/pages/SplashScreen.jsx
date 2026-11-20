@@ -18,10 +18,20 @@ function SplashScreen() {
   ]
 
   const handleComplete = () => {
+    try {
+      localStorage.setItem("hasSeenSplash", "true")
+    } catch {}
+
     if (userData) {
-      navigate('/home')
+      if (userData.role === 'deliveryBoy') {
+        navigate('/delivery-dashboard', { replace: true })
+      } else if (userData.role === 'superAdmin') {
+        navigate('/admin/dashboard', { replace: true })
+      } else {
+        navigate('/home', { replace: true })
+      }
     } else {
-      navigate('/landing')
+      navigate('/landing', { replace: true })
     }
   }
 

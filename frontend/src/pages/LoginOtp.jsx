@@ -19,6 +19,7 @@ import { motion } from 'framer-motion'
 function LoginOtp() {
     const navigate = useNavigate()
     const dispatch = useDispatch()
+    const { userData } = useSelector(state => state.user)
     const [email, setEmail] = useState('')
     const [otp, setOtp] = useState('')
     const [step, setStep] = useState(1)
@@ -27,6 +28,17 @@ function LoginOtp() {
     const [isVisible, setIsVisible] = useState(false)
     const [timer, setTimer] = useState(0)
     const [canResend, setCanResend] = useState(true)
+
+    useEffect(() => {
+        if (userData) {
+            const targetRoute = userData?.role === 'deliveryBoy'
+                ? '/delivery-dashboard'
+                : userData?.role === 'superAdmin'
+                    ? '/admin/dashboard'
+                    : '/home'
+            navigate(targetRoute, { replace: true })
+        }
+    }, [userData, navigate])
 
     // ✅ FIXED: useEffect instead of useState
     useEffect(() => {
@@ -105,7 +117,12 @@ function LoginOtp() {
                 autoClose: 2000,
             })
             setLoading(false)
-            navigate('/')
+            const targetRoute = result.data?.user?.role === 'deliveryBoy'
+                ? '/delivery-dashboard'
+                : result.data?.user?.role === 'superAdmin'
+                    ? '/admin/dashboard'
+                    : '/home'
+            navigate(targetRoute, { replace: true })
         } catch (error) {
             const errorMsg = error.response?.data?.message || 'Invalid OTP'
             setErr(errorMsg)

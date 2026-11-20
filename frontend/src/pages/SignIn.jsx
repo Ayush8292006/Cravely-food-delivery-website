@@ -28,6 +28,19 @@ function SignIn() {
   const [rememberMe, setRememberMe] = useState(() => Boolean(localStorage.getItem('cravely_remember_email')))
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+  const { userData } = useSelector((state) => state.user)
+
+  // If already logged in, automatically forward to dashboard
+  useEffect(() => {
+    if (userData) {
+      const targetRoute = userData?.role === 'deliveryBoy'
+        ? '/delivery-dashboard'
+        : userData?.role === 'superAdmin'
+          ? '/admin/dashboard'
+          : '/home'
+      navigate(targetRoute, { replace: true })
+    }
+  }, [userData, navigate])
 
   const pageRef = useRef(null)
 
@@ -84,10 +97,16 @@ function SignIn() {
 
       toast.success('Welcome back to CRAVELY!', {
         position: 'top-center',
-        autoClose: 1800
+        autoClose: 1200
       })
 
-      setTimeout(() => navigate('/'), 1500)
+      const targetRoute = result.data?.role === 'deliveryBoy'
+        ? '/delivery-dashboard'
+        : result.data?.role === 'superAdmin'
+          ? '/admin/dashboard'
+          : '/home'
+
+      setTimeout(() => navigate(targetRoute, { replace: true }), 600)
     } catch (error) {
       const errorMessage = error?.response?.data?.message || 'Invalid credentials!'
 
@@ -145,10 +164,16 @@ function SignIn() {
 
       toast.success('Signed in successfully with Google!', {
         position: 'top-center',
-        autoClose: 1800
+        autoClose: 1200
       })
 
-      setTimeout(() => navigate('/'), 1500)
+      const targetRoute = data?.role === 'deliveryBoy'
+        ? '/delivery-dashboard'
+        : data?.role === 'superAdmin'
+          ? '/admin/dashboard'
+          : '/home'
+
+      setTimeout(() => navigate(targetRoute, { replace: true }), 600)
     } catch {
       toast.error('Google sign in failed!', { position: 'top-center', autoClose: 2000 })
     }

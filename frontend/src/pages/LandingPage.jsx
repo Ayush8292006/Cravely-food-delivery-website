@@ -121,6 +121,18 @@ function LandingPage() {
   const [newsletterEmail, setNewsletterEmail] = useState('')
   const [showVideoModal, setShowVideoModal] = useState(false)
 
+  // Auto-forward logged in users to their dashboard
+  useEffect(() => {
+    if (userData) {
+      const targetRoute = userData?.role === 'deliveryBoy'
+        ? '/delivery-dashboard'
+        : userData?.role === 'superAdmin'
+          ? '/admin/dashboard'
+          : '/home'
+      navigate(targetRoute, { replace: true })
+    }
+  }, [userData, navigate])
+
   // GSAP Refs
   const rootRef = useRef(null)
   const scrollBarRef = useRef(null)

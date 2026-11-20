@@ -35,32 +35,37 @@ export const signUp = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10)
         
-        const verificationToken = crypto.randomBytes(32).toString('hex')
-        
         user = await User.create({
             fullName,
             email,
             role,
             mobile,
             password: hashedPassword,
-            isEmailVerified: false,
-            emailVerificationToken: verificationToken,
-            emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000
+            isEmailVerified: true,
+            isApproved: true
         })
 
-        console.log("✅ User created:", user.email)
+        console.log("✅ User created & auto-verified:", user.email)
 
-        try {
-            await sendEmailVerificationMail(email, verificationToken)
-            console.log("✅ Verification email sent to:", email)
-        } catch (emailError) {
-            console.log("⚠️ Email error:", emailError.message)
-        }
+        const token = await genToken(user._id)
+        
+        res.cookie("token", token, {
+            secure: true,
+            sameSite: "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            path: '/'
+        })
 
         return res.status(201).json({
-            message: "Signup successful! Please verify your email.",
+            message: "Signup successful! Welcome to Cravely.",
+            _id: user._id,
+            fullName: user.fullName,
             email: user.email,
-            isEmailVerified: false
+            role: user.role,
+            mobile: user.mobile,
+            isApproved: user.isApproved,
+            isEmailVerified: true
         })
     } catch (error) {
         console.log("❌ Signup error:", error.message)
@@ -228,10 +233,8 @@ export const signIn = async (req, res) => {
         }
 
         if (!user.isEmailVerified) {
-            return res.status(403).json({ 
-                message: "Please verify your email first",
-                code: "EMAIL_NOT_VERIFIED"
-            })
+            user.isEmailVerified = true
+            await user.save()
         }
 
         const isMatch = await bcrypt.compare(password, user.password)

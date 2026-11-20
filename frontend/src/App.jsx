@@ -162,7 +162,13 @@ function App() {
                 showSplash ? (
                   <SplashScreen />
                 ) : userData ? (
-                  <Navigate to="/home" replace />
+                  userData.role === 'deliveryBoy' ? (
+                    <Navigate to="/delivery-dashboard" replace />
+                  ) : userData.role === 'superAdmin' ? (
+                    <Navigate to="/admin/dashboard" replace />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
                 ) : (
                   <Navigate to="/landing" replace />
                 )
@@ -174,11 +180,23 @@ function App() {
             <Route path='/contact' element={<Contact />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
 
-            {/* ✅ Auth Routes */}
-            <Route path='/signup' element={!userData ? <SignUp /> : <Navigate to={"/"} />} />
-            <Route path='/signin' element={!userData ? <SignIn /> : <Navigate to={"/"} />} />
-            <Route path='/forgot-password' element={!userData ? <ForgotPassword /> : <Navigate to={"/"} />} />
-            <Route path='/login-otp' element={!userData ? <LoginOtp /> : <Navigate to={"/"} />} />
+            {/* ✅ Auth Routes (Redirect to respective dashboard if already logged in) */}
+            <Route 
+              path='/signup' 
+              element={!userData ? <SignUp /> : <Navigate to={userData.role === 'deliveryBoy' ? '/delivery-dashboard' : userData.role === 'superAdmin' ? '/admin/dashboard' : '/home'} replace />} 
+            />
+            <Route 
+              path='/signin' 
+              element={!userData ? <SignIn /> : <Navigate to={userData.role === 'deliveryBoy' ? '/delivery-dashboard' : userData.role === 'superAdmin' ? '/admin/dashboard' : '/home'} replace />} 
+            />
+            <Route 
+              path='/forgot-password' 
+              element={!userData ? <ForgotPassword /> : <Navigate to="/home" replace />} 
+            />
+            <Route 
+              path='/login-otp' 
+              element={!userData ? <LoginOtp /> : <Navigate to={userData.role === 'deliveryBoy' ? '/delivery-dashboard' : userData.role === 'superAdmin' ? '/admin/dashboard' : '/home'} replace />} 
+            />
 
             {/* ✅ Public / Discovery Routes */}
             <Route path='/help' element={<HelpSupport />} />

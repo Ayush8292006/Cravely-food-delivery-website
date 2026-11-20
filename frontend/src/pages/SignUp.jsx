@@ -34,6 +34,19 @@ function SignUp() {
   const [agreed, setAgreed] = useState(false)
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+  const { userData } = useSelector((state) => state.user)
+
+  // If already logged in, automatically forward to dashboard
+  useEffect(() => {
+    if (userData) {
+      const targetRoute = userData?.role === 'deliveryBoy'
+        ? '/delivery-dashboard'
+        : userData?.role === 'superAdmin'
+          ? '/admin/dashboard'
+          : '/home'
+      navigate(targetRoute, { replace: true })
+    }
+  }, [userData, navigate])
 
   const pageRef = useRef(null)
 
@@ -122,12 +135,18 @@ function SignUp() {
       dispatch(setUserData(result.data))
       setLoading(false)
 
-      toast.success('Account created! Please verify your email via the link sent to you.', {
+      toast.success('Account created successfully! Welcome to CRAVELY.', {
         position: 'top-center',
-        autoClose: 2800
+        autoClose: 1200
       })
 
-      setTimeout(() => navigate('/signin'), 2400)
+      const targetRoute = result.data?.role === 'deliveryBoy'
+        ? '/delivery-dashboard'
+        : result.data?.role === 'superAdmin'
+          ? '/admin/dashboard'
+          : '/home'
+
+      setTimeout(() => navigate(targetRoute, { replace: true }), 600)
     } catch (error) {
       const msg = error?.response?.data?.message || 'Registration failed!'
       setErr(msg)
@@ -158,10 +177,16 @@ function SignUp() {
 
       toast.success('Signed up successfully with Google!', {
         position: 'top-center',
-        autoClose: 1800
+        autoClose: 1200
       })
 
-      setTimeout(() => navigate('/'), 1500)
+      const targetRoute = data?.role === 'deliveryBoy'
+        ? '/delivery-dashboard'
+        : data?.role === 'superAdmin'
+          ? '/admin/dashboard'
+          : '/home'
+
+      setTimeout(() => navigate(targetRoute, { replace: true }), 600)
     } catch {
       toast.error('Google sign up failed!', { position: 'top-center', autoClose: 2000 })
     }
