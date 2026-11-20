@@ -2,8 +2,9 @@ import express from "express"
 import { 
     createEditShop, 
     getMyShop, 
-    getMyShops,      // ✅ ADD THIS
+    getMyShops,
     getShopByCity, 
+    getActiveLocations,
     getShopById,
     deleteShop,
     getAllShops,
@@ -14,18 +15,19 @@ import { upload } from "../middlewares/multer.js"
 
 const shopRouter = express.Router()
 
+// ✅ Public Location & Customer routes (Must be defined before /:id)
+shopRouter.get("/active-locations", getActiveLocations)
+shopRouter.get("/get-by-city/:city", getShopByCity)
+
 // ✅ Owner routes
 shopRouter.post("/create-edit", isAuth, upload.single("image"), createEditShop)
-shopRouter.get('/my-shop', isAuth, getMyShop)           // ✅ Single shop (backward compatible)
-shopRouter.get('/my-shops', isAuth, getMyShops)         // ✅ NEW: All shops of owner
-shopRouter.get('/:id', getShopById)                     // ✅ Get shop by ID (public access for menu browsing)
-shopRouter.delete('/:id', isAuth, deleteShop)           // ✅ Delete shop
-
-// ✅ Customer routes
-shopRouter.get("/get-by-city/:city", getShopByCity)     // ✅ Get shops by city (no auth needed)
+shopRouter.get('/my-shop', isAuth, getMyShop)
+shopRouter.get('/my-shops', isAuth, getMyShops)
+shopRouter.get('/:id', getShopById)
+shopRouter.delete('/:id', isAuth, deleteShop)
 
 // ✅ Admin routes
-shopRouter.get("/admin/all", isAuth, getAllShops)       // ✅ Get all shops
-shopRouter.put("/admin/approve/:id", isAuth, approveShop) // ✅ Approve shop
+shopRouter.get("/admin/all", isAuth, getAllShops)
+shopRouter.put("/admin/approve/:id", isAuth, approveShop)
 
 export default shopRouter

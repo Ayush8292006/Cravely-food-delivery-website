@@ -3,6 +3,7 @@ import Nav from './Nav'
 import { categories } from '../category'
 import ShopCard from '../components/ShopCard'
 import FoodCard from './FoodCard'
+import ComingSoonLocation from './ComingSoonLocation'
 import { 
     FaChevronLeft, FaChevronRight,
     FaFire, FaArrowRight, FaUtensils, FaMapMarkerAlt,
@@ -417,20 +418,11 @@ function UserDashboard() {
                         </section>
                     </>
                 ) : (
-                    /* Existing Original Empty State when no restaurants in city */
-                    <div className="bg-[#13121A] border border-white/10 rounded-3xl p-14 text-center">
-                        <FaStoreSlash size={48} className="text-gray-500 mx-auto mb-4" />
-                        <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
-                            No Restaurants in {currentCity || 'your area'}
-                        </h2>
-                        <p className="text-gray-400 text-sm mb-6">We're coming soon!</p>
-                        <button
-                            onClick={() => navigate('/')}
-                            className="px-6 py-2.5 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white text-sm font-bold shadow-lg shadow-orange-500/30 transition-all hover:scale-105"
-                        >
-                            Go Back Home
-                        </button>
-                    </div>
+                    /* World-Class Coming Soon & Active Hubs Showcase */
+                    <ComingSoonLocation 
+                        requestedCity={currentCity} 
+                        onBrowseAll={() => navigate('/restaurants')} 
+                    />
                 )}
 
                 {/* ========================================================

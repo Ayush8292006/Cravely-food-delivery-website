@@ -168,32 +168,36 @@ export const getShopByCity = async (req, res) => {
     try {
         const { city } = req.params
 
-        // ✅ VALIDATION
         if (!city || !city.trim()) {
             return res.status(400).json({ 
                 message: "City is required" 
             })
         }
 
-        let shops = await Shop.find({
-            city: { $regex: new RegExp(`^${city.trim()}$`, "i") },
-            isApproved: true  // ✅ Only approved shops for customers
+        const trimmedCity = city.trim()
+
+        // If explicitly requesting 'all', return all approved shops
+        if (trimmedCity.toLowerCase() === 'all') {
+            const allShops = await Shop.find({ isApproved: true })
+                .populate("items")
+                .populate('owner', 'fullName email')
+            return res.status(200).json(allShops || [])
+        }
+
+        // Search by city or address matching the requested city (case-insensitive)
+        const regex = new RegExp(trimmedCity, "i")
+        const shops = await Shop.find({
+            $and: [
+                { isApproved: true },
+                {
+                    $or: [
+                        { city: regex },
+                        { address: regex }
+                    ]
+                }
+            ]
         }).populate("items")
         .populate('owner', 'fullName email')
-
-        if ((!shops || shops.length === 0) && (city.toLowerCase() === 'all' || city.toLowerCase() === 'nearby')) {
-            shops = await Shop.find({ isApproved: true })
-                .populate("items")
-                .populate('owner', 'fullName email')
-        }
-
-        // If no shops in this specific city, still return all approved shops so the customer has choices
-        if (!shops || shops.length === 0) {
-            shops = await Shop.find({ isApproved: true })
-                .populate("items")
-                .populate('owner', 'fullName email')
-                .limit(20)
-        }
 
         return res.status(200).json(shops || [])
 
@@ -201,6 +205,64 @@ export const getShopByCity = async (req, res) => {
         console.log("❌ Get shop by city error:", error.message)
         return res.status(500).json({ 
             message: `get shop by city error: ${error.message}` 
+        })
+    }
+}
+
+// ============================================
+// GET ACTIVE LOCATIONS & SERVICEABLE HUBS
+// ============================================
+export const getActiveLocations = async (req, res) => {
+    try {
+        const approvedShops = await Shop.find({ isApproved: true })
+            .select('name address city rating priceForTwo image items category')
+            .populate('items', 'name price foodType')
+            .lean()
+
+        const cityMap = {}
+        for (const shop of approvedShops) {
+            const cityName = (shop.city || 'Greater Noida').trim()
+            if (!cityMap[cityName]) {
+                cityMap[cityName] = {
+                    city: cityName,
+                    restaurantCount: 0,
+                    restaurants: [],
+                    sampleAddresses: new Set()
+                }
+            }
+            cityMap[cityName].restaurantCount += 1
+            cityMap[cityName].restaurants.push({
+                _id: shop._id,
+                name: shop.name,
+                address: shop.address,
+                category: shop.category,
+                priceForTwo: shop.priceForTwo,
+                rating: shop.rating?.average || 4.5,
+                image: shop.image,
+                itemCount: shop.items?.length || 0
+            })
+            if (shop.address) {
+                cityMap[cityName].sampleAddresses.add(shop.address)
+            }
+        }
+
+        const activeHubs = Object.values(cityMap).map(hub => ({
+            city: hub.city,
+            restaurantCount: hub.restaurantCount,
+            restaurants: hub.restaurants,
+            sampleAddresses: Array.from(hub.sampleAddresses).slice(0, 5)
+        }))
+
+        return res.status(200).json({
+            success: true,
+            totalActiveShops: approvedShops.length,
+            activeHubs
+        })
+    } catch (error) {
+        console.log("❌ Get active locations error:", error.message)
+        return res.status(500).json({ 
+            success: false, 
+            message: error.message 
         })
     }
 }

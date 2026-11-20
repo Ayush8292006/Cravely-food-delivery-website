@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
 import Nav from '../components/Nav';
 import ShopCard from '../components/ShopCard';
+import ComingSoonLocation from '../components/ComingSoonLocation';
 
 function Restaurants() {
     const navigate = useNavigate()
@@ -54,6 +55,24 @@ function Restaurants() {
             toast.error(errorMsg)
             setRestaurants([])
             setFilteredRestaurants([])
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const fetchAllRestaurants = async () => {
+        setLoading(true)
+        setError(null)
+        try {
+            const result = await axios.get(
+                `${serverUrl}/api/shop/get-by-city/all`,
+                { withCredentials: true }
+            )
+            setRestaurants(result.data || [])
+            setFilteredRestaurants(result.data || [])
+            toast.info('Viewing all operational kitchens across all hubs')
+        } catch {
+            toast.error('Failed to load all restaurants')
         } finally {
             setLoading(false)
         }
@@ -235,41 +254,29 @@ function Restaurants() {
                             />
                         ))}
                     </div>
-                ) : (
-                    /* 7. Empty State */
+                ) : searchQuery ? (
+                    /* Search Empty State */
                     <div className="bg-[#13121A] border border-white/10 p-12 sm:p-16 rounded-3xl text-center max-w-lg mx-auto space-y-4">
                         <div className="w-20 h-20 mx-auto rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-[#FF6B00]">
                             <MdRestaurant size={36} />
                         </div>
-
-                        <h3 className="text-xl font-black text-white">
-                            {!currentCity ? 'Select Your City First' : 'No Restaurants Found'}
-                        </h3>
-
+                        <h3 className="text-xl font-black text-white">No Matching Kitchens</h3>
                         <p className="text-xs text-gray-400 leading-relaxed">
-                            {!currentCity 
-                                ? 'Please select your delivery location from the top navigation to explore kitchens near you.'
-                                : searchQuery 
-                                    ? `No restaurants match "${searchQuery}" in ${currentCity}`
-                                    : `We are onboarding fine dining kitchens in ${currentCity} soon!`}
+                            No restaurants match "{searchQuery}" in {currentCity || 'your area'}. Try a different cuisine or landmark.
                         </p>
-
-                        {!currentCity ? (
-                            <button 
-                                onClick={() => navigate('/home')}
-                                className="px-6 py-2.5 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white font-bold text-xs shadow-lg shadow-orange-500/30 transition-all hover:scale-105"
-                            >
-                                Go to Home
-                            </button>
-                        ) : searchQuery && (
-                            <button 
-                                onClick={() => setSearchQuery('')}
-                                className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition"
-                            >
-                                Clear Search
-                            </button>
-                        )}
+                        <button 
+                            onClick={() => setSearchQuery('')}
+                            className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition"
+                        >
+                            Clear Search
+                        </button>
                     </div>
+                ) : (
+                    /* 7. Professional Coming Soon & Active Hubs Showcase */
+                    <ComingSoonLocation 
+                        requestedCity={currentCity} 
+                        onBrowseAll={fetchAllRestaurants} 
+                    />
                 )}
             </div>
         </div>

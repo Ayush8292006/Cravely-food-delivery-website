@@ -297,6 +297,29 @@ function LocationSelector({ theme = "dark" }) {
                                 </div>
                             )}
                         </div>
+
+                        {/* Quick Demo Hub for Interviewer / Reviewer */}
+                        <div className={`mt-2 px-3 py-2 rounded-xl ${isLight ? 'bg-orange-50 border border-orange-200' : 'bg-orange-500/10 border border-orange-500/20'} flex items-center justify-between`}>
+                            <div>
+                                <p className="text-[9px] uppercase tracking-wider font-extrabold text-[#FF8C00]">Live Serviceable Hub:</p>
+                                <p className={`text-xs font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>Greater Noida (6 Kitchens)</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    dispatch(setCurrentCity('Greater Noida'))
+                                    dispatch(setCurrentAddress('Near Alpha 1 Commercial Belt, Greater Noida'))
+                                    try {
+                                        localStorage.setItem('cravely_city', 'Greater Noida')
+                                    } catch {}
+                                    setShowDropdown(false)
+                                    toast.success('📍 Switched to active hub: Greater Noida!')
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-[#FF6B00] hover:bg-orange-600 text-white text-[11px] font-bold transition shadow-sm cursor-pointer"
+                            >
+                                Switch
+                            </button>
+                        </div>
                         
                         {suggestions.length > 0 && (
                             <div className='mt-2 max-h-40 overflow-y-auto'>
