@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react'
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react'
 import {
   FaRegEye, FaRegEyeSlash, FaArrowRight, FaLock,
   FaBolt, FaShieldAlt, FaHeart, FaUserPlus, FaSignInAlt, FaKey
