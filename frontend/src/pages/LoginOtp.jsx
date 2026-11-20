@@ -12,7 +12,7 @@ import {
     FaSync
 } from "react-icons/fa"
 import { MdMail, MdVerified } from "react-icons/md"
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { setUserData } from '../redux/userSlice'
 import { motion } from 'framer-motion'
 
