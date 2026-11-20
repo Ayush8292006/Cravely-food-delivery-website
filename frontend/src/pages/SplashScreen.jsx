@@ -1,39 +1,50 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { motion, AnimatePresence } from 'framer-motion'
+import { FaBolt, FaShieldAlt, FaUtensils, FaArrowRight } from 'react-icons/fa'
 
 function SplashScreen() {
   const navigate = useNavigate()
+  const { userData } = useSelector((state) => state.user)
   const [progress, setProgress] = useState(0)
   const [statusIndex, setStatusIndex] = useState(0)
 
   const statusMessages = [
-    'Preparing experience...',
-    'Loading deliciousness...',
-    'Almost ready...',
-    'Ready to serve',
+    'Connecting to local gourmet kitchens...',
+    'Syncing chef menus & exclusive offers...',
+    'Calibrating rapid 30-min delivery...',
+    'Welcome to Cravely',
   ]
+
+  const handleComplete = () => {
+    if (userData) {
+      navigate('/home')
+    } else {
+      navigate('/landing')
+    }
+  }
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setProgress(prev => {
+      setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval)
           return 100
         }
-        return prev + 1.6
+        return prev + 2
       })
     }, 45)
 
     const timer = setTimeout(() => {
-      navigate('/landing')
-    }, 4500)
+      handleComplete()
+    }, 2800)
 
     return () => {
       clearInterval(interval)
       clearTimeout(timer)
     }
-  }, [navigate])
+  }, [userData])
 
   // Sync status text with progress
   useEffect(() => {
@@ -43,287 +54,156 @@ function SplashScreen() {
     else setStatusIndex(3)
   }, [progress])
 
-  // Food items with richer motion
-  const foods = [
-    {
-      src: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=400&fit=crop',
-      className: 'w-32 h-32 sm:w-40 sm:h-40 -top-4 left-2 sm:left-12',
-      y: [0, -26, 0],
-      x: [0, 8, 0],
-      rotate: [-8, 4, -8],
-      delay: 0.15,
-    },
-    {
-      src: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=400&fit=crop',
-      className: 'w-28 h-28 sm:w-36 sm:h-36 -top-2 right-2 sm:right-14',
-      y: [0, 22, 0],
-      x: [0, -6, 0],
-      rotate: [6, 14, 6],
-      delay: 0.3,
-    },
-    {
-      src: 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a7?w=400&h=400&fit=crop',
-      className: 'w-32 h-32 sm:w-40 sm:h-40 bottom-28 -right-2 sm:right-8',
-      y: [0, -20, 0],
-      x: [0, -10, 0],
-      rotate: [4, -7, 4],
-      delay: 0.45,
-    },
-    {
-      src: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=300&h=300&fit=crop',
-      className: 'w-24 h-24 sm:w-28 sm:h-28 bottom-36 left-2 sm:left-10',
-      y: [0, 16, 0],
-      x: [0, 7, 0],
-      rotate: [-5, 8, -5],
-      delay: 0.6,
-    },
-  ]
-
-  const floaters = [
-    { emoji: '🌶️', className: 'top-[28%] left-6 sm:left-20 text-2xl', delay: 0.4 },
-    { emoji: '🍃', className: 'top-[22%] right-10 sm:right-28 text-xl', delay: 0.7 },
-    { emoji: '🍅', className: 'top-[48%] right-5 sm:right-16 text-2xl', delay: 1.0 },
-    { emoji: '🌿', className: 'bottom-[38%] left-10 sm:left-24 text-lg', delay: 1.2 },
-    { emoji: '✨', className: 'top-[38%] left-[18%] text-sm', delay: 0.9 },
-    { emoji: '✨', className: 'bottom-[42%] right-[22%] text-sm', delay: 1.4 },
-  ]
-
   return (
-    <div className="fixed inset-0 bg-[#050505] flex items-center justify-center overflow-hidden">
-      
-      {/* Animated soft radial glows */}
-      <div className="absolute inset-0 pointer-events-none">
-        <motion.div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full bg-orange-600/[0.08] blur-[150px]"
-          animate={{ scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        <motion.div
-          className="absolute top-[30%] left-[20%] w-[300px] h-[300px] rounded-full bg-orange-500/[0.05] blur-[100px]"
-          animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        <motion.div
-          className="absolute bottom-[25%] right-[15%] w-[280px] h-[280px] rounded-full bg-amber-500/[0.04] blur-[90px]"
-          animate={{ x: [0, -25, 0], y: [0, 15, 0] }}
-          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+    <div 
+      className="fixed inset-0 bg-[#0A090D] flex flex-col items-center justify-between py-10 px-6 overflow-hidden select-none"
+      style={{ fontFamily: "'Poppins', 'Segoe UI', system-ui, sans-serif" }}
+    >
+      {/* 1. Subtle Architectural Concentric Rings (Zero Gradients, Minimal Tech Lines) */}
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+        <div className="w-[320px] h-[320px] sm:w-[480px] sm:h-[480px] rounded-full border border-white/[0.03] absolute" />
+        <div className="w-[520px] h-[520px] sm:w-[740px] sm:h-[740px] rounded-full border border-white/[0.02] absolute" />
+        <div className="w-[720px] h-[720px] sm:w-[1020px] sm:h-[1020px] rounded-full border border-white/[0.015] absolute" />
+        {/* Subtle dot matrix grid */}
+        <div 
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)',
+            backgroundSize: '32px 32px'
+          }}
         />
       </div>
 
-      {/* Large subtle watermark with gentle pulse */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-        <motion.span
-          className="text-[26rem] sm:text-[34rem] font-black text-white/[0.025] leading-none tracking-tighter"
-          animate={{ opacity: [0.02, 0.035, 0.02], scale: [1, 1.02, 1] }}
-          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+      {/* 2. Top Header Bar: Skip Button */}
+      <div className="relative z-20 w-full max-w-5xl flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+            Live Kitchens Online
+          </span>
+        </div>
+
+        <button
+          onClick={handleComplete}
+          className="px-4 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs font-semibold text-gray-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer shadow-sm hover:scale-105 active:scale-95"
         >
-          C
-        </motion.span>
+          <span>Skip</span>
+          <FaArrowRight size={10} className="text-[#FF6B00]" />
+        </button>
       </div>
 
-      {/* Floating Food Cards */}
-      {foods.map((item, i) => (
+      {/* 3. Center Brand Stage */}
+      <div className="relative z-20 flex flex-col items-center text-center my-auto max-w-md w-full">
+        {/* Emblem Squircle Card */}
         <motion.div
-          key={i}
-          className={`absolute ${item.className} rounded-2xl overflow-hidden z-10`}
-          initial={{ opacity: 0, scale: 0.65, y: 40 }}
-          animate={{
-            opacity: 1,
-            scale: 1,
-            y: item.y,
-            x: item.x,
-            rotate: item.rotate,
-          }}
-          transition={{
-            opacity: { duration: 1, delay: item.delay },
-            scale: { duration: 1, delay: item.delay, type: 'spring', stiffness: 140, damping: 14 },
-            y: { duration: 5.8 + i * 0.35, repeat: Infinity, ease: 'easeInOut' },
-            x: { duration: 6.2 + i * 0.3, repeat: Infinity, ease: 'easeInOut' },
-            rotate: { duration: 5.8 + i * 0.35, repeat: Infinity, ease: 'easeInOut' },
-          }}
-          style={{
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06)',
-          }}
-        >
-          <img
-            src={item.src}
-            alt="food"
-            className="w-full h-full object-cover"
-            draggable={false}
-          />
-          {/* soft gradient overlay for depth */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
-          <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10 pointer-events-none" />
-        </motion.div>
-      ))}
-
-      {/* Small floating elements */}
-      {floaters.map((item, i) => (
-        <motion.span
-          key={i}
-          className={`absolute ${item.className} z-10 select-none`}
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{
-            opacity: [0.4, 0.9, 0.4],
-            y: [0, -20, 0],
-            rotate: [0, 14, -10, 0],
-            scale: [1, 1.15, 1],
-          }}
-          transition={{
-            duration: 4.8 + i * 0.4,
-            repeat: Infinity,
-            delay: item.delay,
-            ease: 'easeInOut',
-          }}
-        >
-          {item.emoji}
-        </motion.span>
-      ))}
-
-      {/* Rising particles (more organic) */}
-      {[...Array(18)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full"
-          style={{
-            left: `${6 + Math.random() * 88}%`,
-            bottom: `${Math.random() * 15}%`,
-            width: `${2 + Math.random() * 3}px`,
-            height: `${2 + Math.random() * 3}px`,
-            background:
-              i % 3 === 0
-                ? 'rgba(249, 115, 22, 0.85)'
-                : i % 3 === 1
-                ? 'rgba(251, 146, 60, 0.7)'
-                : 'rgba(253, 186, 116, 0.6)',
-          }}
-          animate={{
-            y: [0, -140 - Math.random() * 90],
-            opacity: [0, 0.8, 0],
-            scale: [0.4, 1.3, 0.2],
-            x: [0, (Math.random() - 0.5) * 40],
-          }}
-          transition={{
-            duration: 3.8 + Math.random() * 2.8,
-            repeat: Infinity,
-            delay: Math.random() * 3.5,
-            ease: 'easeOut',
-          }}
-        />
-      ))}
-
-      {/* ================= CENTER CONTENT ================= */}
-      <div className="relative z-20 flex flex-col items-center text-center px-6">
-        
-        {/* Logo Icon with breathing glow */}
-        <motion.div
-          initial={{ scale: 0.5, opacity: 0, y: 24 }}
+          initial={{ scale: 0.7, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 170, damping: 15, delay: 0.15 }}
-          className="mb-6"
+          transition={{ type: 'spring', stiffness: 200, damping: 16 }}
+          className="relative mb-6"
         >
-          <div className="relative">
-            {/* soft pulsing glow */}
-            <motion.div
-              className="absolute inset-0 blur-2xl bg-orange-500/35 rounded-full scale-[1.8]"
-              animate={{ opacity: [0.35, 0.55, 0.35], scale: [1.7, 1.9, 1.7] }}
-              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-[#13121A] border border-white/10 shadow-2xl flex items-center justify-center relative overflow-hidden group">
+            {/* Cloche & Wings Icon */}
             <motion.svg
-              width="72"
-              height="72"
+              width="58"
+              height="58"
               viewBox="0 0 72 72"
               fill="none"
-              className="relative drop-shadow-[0_6px_24px_rgba(249,115,22,0.5)]"
-              animate={{ rotate: [0, 2, -2, 0] }}
-              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+              className="text-[#FF6B00]"
+              animate={{ y: [0, -3, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             >
-              {/* Speed lines */}
-              <path d="M6 26h12" stroke="#f97316" strokeWidth="3.5" strokeLinecap="round" />
-              <path d="M4 36h14" stroke="#f97316" strokeWidth="3.5" strokeLinecap="round" />
-              <path d="M6 46h12" stroke="#f97316" strokeWidth="3.5" strokeLinecap="round" />
-              
-              {/* Cloche */}
+              {/* Delivery Speed Lines */}
+              <path d="M8 26h10" stroke="#FF6B00" strokeWidth="3.5" strokeLinecap="round" />
+              <path d="M4 36h14" stroke="#FF6B00" strokeWidth="3.5" strokeLinecap="round" />
+              <path d="M8 46h10" stroke="#FF6B00" strokeWidth="3.5" strokeLinecap="round" />
+
+              {/* Cloche Dome & Handle */}
+              <circle cx="48" cy="18" r="3.5" fill="#FF6B00" />
               <path
-                d="M22 44c0-12 10-20 26-20s26 8 26 20"
-                stroke="#f97316"
+                d="M24 44c0-12 10-20 24-20s24 8 24 20"
+                stroke="#FF6B00"
                 strokeWidth="4"
                 strokeLinecap="round"
-                fill="none"
               />
-              <path d="M20 50h52" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
-              <circle cx="48" cy="16" r="3.2" fill="#f97316" />
+              {/* Platter Base */}
+              <path d="M20 50h48" stroke="#FF6B00" strokeWidth="4" strokeLinecap="round" />
             </motion.svg>
           </div>
         </motion.div>
 
-        {/* Brand Name */}
+        {/* Wordmark */}
         <motion.h1
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35, duration: 0.75 }}
-          className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-white"
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="text-4xl sm:text-5xl font-black text-white tracking-tight flex items-center justify-center"
         >
-          cravely
-          <motion.span
-            className="text-orange-500"
-            animate={{ opacity: [0.85, 1, 0.85] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            .
-          </motion.span>
+          <span>cravely</span>
+          <span className="text-[#FF6B00] ml-0.5">.</span>
         </motion.h1>
 
         {/* Tagline */}
         <motion.p
-          initial={{ opacity: 0, y: 14 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.65 }}
-          className="mt-3 text-orange-400/90 text-[15px] sm:text-base font-medium tracking-wide"
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="mt-2 text-xs sm:text-sm font-bold uppercase tracking-[0.28em] text-[#FF8C00]"
         >
           Crave it. We'll deliver it.
         </motion.p>
 
-        {/* Progress Section */}
+        {/* Progress & Live Loader */}
         <motion.div
-          initial={{ opacity: 0, y: 22 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8, duration: 0.65 }}
-          className="mt-16 w-60 sm:w-72"
+          transition={{ delay: 0.4, duration: 0.5 }}
+          className="mt-10 w-full max-w-xs space-y-3"
         >
-          {/* Track */}
-          <div className="relative h-[3px] w-full bg-white/[0.08] rounded-full overflow-hidden">
+          {/* Progress Bar Container */}
+          <div className="relative h-2 w-full bg-[#13121A] border border-white/10 rounded-full overflow-hidden p-[1px]">
             <motion.div
-              className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-600 via-orange-400 to-amber-300 rounded-full"
+              className="h-full bg-[#FF6B00] rounded-full transition-all duration-75"
               style={{ width: `${progress}%` }}
-              transition={{ duration: 0.08 }}
-            />
-            {/* glowing tip */}
-            <motion.div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-orange-300 shadow-[0_0_12px_4px_rgba(249,115,22,0.6)]"
-              style={{ left: `calc(${progress}% - 6px)` }}
-              animate={{ scale: [1, 1.25, 1] }}
-              transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
             />
           </div>
 
-          {/* Status text with fade */}
-          <div className="mt-5 h-5 relative">
-            <AnimatePresence mode="wait">
-              <motion.p
-                key={statusIndex}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.35 }}
-                className="absolute inset-0 text-white/45 text-sm tracking-wide font-medium"
-              >
-                {statusMessages[statusIndex]}
-              </motion.p>
-            </AnimatePresence>
+          {/* Status Message & Percent */}
+          <div className="flex items-center justify-between text-xs px-1">
+            <div className="h-4 relative flex-1 text-left">
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={statusIndex}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.25 }}
+                  className="text-gray-400 text-[11px] font-medium truncate"
+                >
+                  {statusMessages[statusIndex]}
+                </motion.p>
+              </AnimatePresence>
+            </div>
+            <span className="text-white/60 font-mono text-[11px] font-bold ml-2">
+              {Math.min(100, Math.round(progress))}%
+            </span>
           </div>
         </motion.div>
+      </div>
+
+      {/* 4. Bottom Feature Badges Strip (Solid Clean Boxes, Zero Gradients) */}
+      <div className="relative z-20 w-full max-w-xl flex items-center justify-center gap-2 sm:gap-4 flex-wrap text-center">
+        <div className="px-3.5 py-1.5 rounded-xl bg-[#13121A] border border-white/[0.08] flex items-center gap-1.5">
+          <FaBolt size={10} className="text-[#FF6B00]" />
+          <span className="text-[11px] font-bold text-gray-300">30-Min Fast Delivery</span>
+        </div>
+        <div className="px-3.5 py-1.5 rounded-xl bg-[#13121A] border border-white/[0.08] flex items-center gap-1.5">
+          <FaShieldAlt size={10} className="text-emerald-400" />
+          <span className="text-[11px] font-bold text-gray-300">Verified Kitchens</span>
+        </div>
+        <div className="px-3.5 py-1.5 rounded-xl bg-[#13121A] border border-white/[0.08] flex items-center gap-1.5">
+          <FaUtensils size={10} className="text-amber-400" />
+          <span className="text-[11px] font-bold text-gray-300">Artisan Menus</span>
+        </div>
       </div>
     </div>
   )
