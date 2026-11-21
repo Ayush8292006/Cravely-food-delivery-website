@@ -22,6 +22,9 @@ import { socketHandler } from "./socket.js"
 const app = express()
 const server = http.createServer(app)
 
+// ✅ Get frontend URL from environment with fallback
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://cravely-food-delivery-website.vercel.app'
+
 // ✅ Dynamic CORS origins checker (supports all Vercel deployments, localhost & Render)
 const allowedOrigins = [
     'http://localhost:5173',
@@ -30,7 +33,7 @@ const allowedOrigins = [
     'http://localhost:5000',
     'https://cravely-food-delivery-website.vercel.app',
     'https://cravely-backend-dmak.onrender.com',
-    process.env.FRONTEND_URL
+    FRONTEND_URL
 ].filter(Boolean)
 
 const corsOriginChecker = (origin, callback) => {
@@ -90,7 +93,19 @@ app.get('/', (req, res) => {
     })
 })
 
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', uptime: process.uptime() })
+})
+
 socketHandler(io)
+
+// Handle uncaught errors gracefully
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason)
+})
+process.on('uncaughtException', (err) => {
+    console.error('⚠️ Uncaught Exception thrown:', err)
+})
 
 server.listen(port, () => {
     connectDb()

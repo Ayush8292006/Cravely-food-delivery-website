@@ -1,0 +1,10 @@
+{
+  "name": "cravely-root",
+  "version": "1.0.0",
+  "description": "Cravely food delivery backend & monorepo orchestrator",
+  "private": true,
+  "scripts": {
+    "build": "cd backend && npm install",
+    "start": "cd backend && npm start"
+  }
+}
